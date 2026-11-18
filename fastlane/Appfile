@@ -1,0 +1,3 @@
+# Identité de l'app pour fastlane. PUBLIC-SAFE : aucun secret ici (pas de clé API,
+# pas d'Apple ID). Les identifiants App Store Connect viennent de l'environnement.
+app_identifier("com.idsynergy.ebp-tickets-prix")

@@ -55,4 +55,45 @@ platform :ios do
 
     UI.success("Captures envoyées en brouillon sur App Store Connect. Rien n'a été soumis à la vérification.")
   end
+
+  desc "Envoie NOTES (fastlane/metadata) + CAPTURES déjà générées, en brouillon, sans soumettre."
+  desc "N'incrémente pas la version, ne touche pas au binaire. Pour une montée de version."
+  desc "Usage : bundle exec fastlane upload_store_assets"
+  lane :upload_store_assets do
+    key_id    = ENV["APP_STORE_CONNECT_API_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_API_ISSUER_ID"]
+    key_path  = ENV["APP_STORE_CONNECT_API_KEY_PATH"]
+
+    if [key_id, issuer_id, key_path].any?(&:nil?)
+      UI.user_error!(
+        "Identifiants App Store Connect manquants. Renseignez-les dans fastlane/.env " \
+        "(copier .env.example), ils ne doivent jamais être commités."
+      )
+    end
+
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_filepath: key_path
+    )
+
+    # Pousse les notes de version présentes dans fastlane/metadata (seul release_notes.txt
+    # y figure → seules les notes sont mises à jour, les autres champs de la fiche ne sont
+    # pas touchés) + les captures, en BROUILLON. Pas de binaire, pas de soumission : la
+    # publication reste manuelle (sélection du build + « Soumettre »).
+    deliver(
+      api_key: api_key,
+      metadata_path: "./fastlane/metadata",
+      screenshots_path: "./fastlane/screenshots",
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_app_version_update: false,
+      overwrite_screenshots: true,
+      submit_for_review: false,
+      force: true,
+      run_precheck_before_submit: false
+    )
+
+    UI.success("Notes + captures envoyées en brouillon. Rien n'a été soumis à la vérification.")
+  end
 end
