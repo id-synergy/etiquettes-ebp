@@ -1,0 +1,11 @@
+Nouveautés :
+- Partage entre téléphones depuis les Réglages : exportez vos modèles d'étiquette et vos réglages d'imprimante, ensemble ou séparément, et importez-les en un seul endroit.
+- Partage par QR code en plusieurs pages quand c'est trop long pour un seul code (utile sans AirDrop). L'appareil qui reçoit vérifie que tout est bien arrivé avant d'appliquer.
+- Vérification de mise à jour au démarrage : l'app vous prévient quand une nouvelle version est disponible.
+- Historique : « Reprendre » et « Restaurer » ouvrent la fiche du bon article, avec son stock et ses prix à jour.
+- Scan plus fluide : le même code n'est plus relu en boucle ; en scan multiple, un article n'est ajouté qu'une fois.
+
+Corrections :
+- Code-barres EAN-13 corrigé : certaines étiquettes n'étaient pas lues par les douchettes de caisse.
+- Partage par AirDrop fiabilisé (modèles et réglages).
+- iPhone de nouveau bloqué en mode portrait (l'iPad reste libre).

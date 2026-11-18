@@ -1,0 +1,11 @@
+What's new:
+- Device-to-device sharing from Settings: export your label templates and printer settings, together or separately, and import them all in one place.
+- Multi-page QR sharing when a payload is too large for a single code (handy without AirDrop). The receiving device verifies that everything arrived before applying.
+- Update check on launch: the app lets you know when a new version is available.
+- History: "Resume" and "Restore" now open the correct item, with up-to-date stock and prices.
+- Smoother scanning: the same code is no longer re-read in a loop; in multi-scan, an item is added only once.
+
+Fixes:
+- Fixed EAN-13 barcode: some labels were not read by checkout scanners.
+- AirDrop sharing made reliable (templates and settings).
+- iPhone locked to portrait again (iPad stays flexible).
