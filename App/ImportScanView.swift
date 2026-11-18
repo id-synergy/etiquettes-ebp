@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioToolbox
 
 /// Feuille d'IMPORT par scan de QR. Gère DEUX cas de façon transparente :
 ///  - un QR SIMPLE (payload court) : la chaîne décodée part directement à `onScanned` ;
@@ -22,17 +23,17 @@ struct ImportScanView: View {
     @State private var collector = QRPageCollector()
     /// Progression du partage paginé en cours (0/0 tant qu'aucune page paginée scannée).
     @State private var pagedProgress: (received: Int, total: Int) = (0, 0)
-    /// Réarme le scanner après chaque page (recrée la vue → le coordinator rescanne).
-    @State private var scanGeneration = 0
 
     var body: some View {
         NavigationStack {
             ZStack {
+                // Scan CONTINU : le même QR maintenu devant la caméra n'est pas relu en boucle.
+                // On émet le retour (bip/vibration) nous-même, seulement sur une page ACCEPTÉE.
                 QRScannerView(
                     onFound: { raw in handle(raw) },
-                    onError: { message in outcome = .failure(message) }
+                    onError: { message in outcome = .failure(message) },
+                    continuous: true
                 )
-                .id(scanGeneration)
                 .ignoresSafeArea(edges: .bottom)
 
                 RoundedRectangle(cornerRadius: 20)
@@ -71,7 +72,6 @@ struct ImportScanView: View {
                                 handled = false
                                 collector.reset()
                                 pagedProgress = (0, 0)
-                                rearm()
                             }
                             .buttonStyle(.borderedProminent)
                         }
@@ -92,6 +92,10 @@ struct ImportScanView: View {
         }
     }
 
+    /// Le scanner tourne en continu et ne relit pas le même QR : chaque appel ici correspond donc à
+    /// une valeur DIFFÉRENTE de la précédente. On ne joue le retour (bip + vibration) que sur une
+    /// NOUVELLE page acceptée ou une complétion — jamais sur un doublon, un code étranger ou le même
+    /// QR maintenu (déjà filtré en amont). `handled` fige tout après une conclusion.
     private func handle(_ raw: String) {
         guard !handled else { return }
         switch QRPagination.parsePage(raw) {
@@ -99,9 +103,7 @@ struct ImportScanView: View {
             // QR simple : on traite comme avant (réessai possible si le parent refuse).
             finish(with: onScanned(raw), terminal: false)
         case .failure(.malformed):
-            // Ressemble à une page mais cassée : on réarme pour laisser l'utilisateur réessayer.
             outcome = .failure(NSLocalizedString("Page illisible. Réessayez.", comment: "Bad page"))
-            rearm()
         case .success(let page):
             handlePage(page)
         }
@@ -110,25 +112,26 @@ struct ImportScanView: View {
     /// Intègre une page d'un partage paginé et met à jour la progression ou conclut.
     private func handlePage(_ page: QRPagination.Page) {
         switch collector.add(page) {
-        case .added(let received, let total), .duplicate(let received, let total):
+        case .added(let received, let total):
+            // Nouvelle page acceptée : retour discret, et on efface un éventuel message d'erreur.
             pagedProgress = (received, total)
             outcome = nil
-            rearm()
+            acceptedFeedback()
+        case .duplicate:
+            // Une page déjà reçue (ex. retour en arrière côté émetteur) : on ignore en silence.
+            break
         case .otherTransfer:
             outcome = .failure(NSLocalizedString("Cette page vient d’un autre partage. Recommencez.", comment: "Other transfer"))
             collector.reset()
             pagedProgress = (0, 0)
-            rearm()
         case .signatureMismatch:
             outcome = .failure(NSLocalizedString("Les pages ne correspondent pas (transfert incomplet ou altéré). Recommencez.", comment: "Signature mismatch"))
             collector.reset()
             pagedProgress = (0, 0)
-            rearm()
         case .completed(let data):
             // Toutes les pages reçues et signature vérifiée : on remet le JSON au parent. Si le
-            // parent refuse (mauvais type, contenu vide…), l'échec est TERMINAL : le transfert était
-            // complet et vérifié, rescanner une page ne ferait que des doublons. L'utilisateur
-            // recommence via « Réessayer » (qui réinitialise tout).
+            // parent refuse (mauvais type, contenu vide…), l'échec est TERMINAL.
+            acceptedFeedback()
             let json = String(decoding: data, as: UTF8.self)
             finish(with: onScanned(json), terminal: true)
         }
@@ -148,16 +151,16 @@ struct ImportScanView: View {
             // Échec après reconstitution complète : on nettoie pour un nouvel essai propre.
             collector.reset()
             pagedProgress = (0, 0)
-            handled = true   // reste figé jusqu'à « Réessayer »
         } else {
             // Échec d'un QR simple : on laisse réessayer directement.
             handled = false
         }
     }
 
-    /// Recrée le scanner pour qu'il lise la page suivante (il se fige après chaque lecture).
-    private func rearm() {
-        scanGeneration += 1
+    /// Retour sensoriel d'une page acceptée : petit bip + légère vibration.
+    private func acceptedFeedback() {
+        AudioServicesPlaySystemSound(1057)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }
 
