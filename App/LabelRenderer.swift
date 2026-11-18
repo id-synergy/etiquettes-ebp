@@ -50,8 +50,13 @@ enum LabelRenderer {
         let module = geometry.moduleDots
         let left = geometry.barcodeLeft
         let rows = geometry.rows(barcodeRows(size: size, arrangement: arrangement))
+        // Gardes (début/milieu/fin) prolongées À MI-HAUTEUR des chiffres (≈ 9 pt de layout),
+        // comme un vrai EAN-13. Les chiffres sont dessinés juste sous les barres par la composition.
+        let guardExtraPx = max(1, Int((9.0 * geometry.scale).rounded()))
+        let guardBottom = min(height, rows.upperBound + guardExtraPx)
         for (index, on) in modules.enumerated() where on {
-            for y in rows {
+            let bottom = EAN13.guardModules.contains(index) ? guardBottom : rows.upperBound
+            for y in rows.lowerBound..<bottom {
                 for dot in 0..<module {
                     black[y * width + left + index * module + dot] = true
                 }
@@ -87,8 +92,12 @@ enum LabelRenderer {
         }
         let modules = try EAN13.modules(for: ean)
         let module = WideLabelLayout.moduleDots
+        let rows = layout.barcodeRows
+        // Gardes prolongées à mi-hauteur des chiffres (≈ 9 pt, non mis à l'échelle ici).
+        let guardBottom = min(height, rows.upperBound + 9)
         for (index, on) in modules.enumerated() where on {
-            for y in layout.barcodeRows {
+            let bottom = EAN13.guardModules.contains(index) ? guardBottom : rows.upperBound
+            for y in rows.lowerBound..<bottom {
                 for dot in 0..<module {
                     black[y * width + layout.barcodeLeft + index * module + dot] = true
                 }
@@ -238,7 +247,9 @@ enum LabelRenderer {
                     // Chiffres lisibles sous les barres uniquement si la cellule est résolue en
                     // code-barres (un QR, choisi ou en repli, n'affiche pas de chiffres).
                     if case .barcode(let digits, _) = resolved[placed.cell.id] {
-                        let digitsTop = CGFloat(placed.barcodeBarsTopLayout + placed.barcodeBarsHeightLayout)
+                        // Les chiffres passent SOUS la pointe des gardes allongées (≈ 9 pt) pour ne
+                        // pas être traversés par la garde centrale et les gardes de bord.
+                        let digitsTop = CGFloat(placed.barcodeBarsTopLayout + placed.barcodeBarsHeightLayout) + 9
                         let third = CGFloat(placed.width) / 3
                         let x0 = CGFloat(placed.x)
                         draw(String(digits.prefix(1)), in: CGRect(x: x0, y: digitsTop, width: third, height: 18),
@@ -284,8 +295,12 @@ enum LabelRenderer {
         let left = cellLeftPx + (cellWidthPx - (barcodePx + 2 * 10 * modulePx)) / 2 + 10 * modulePx
         let topPx = Int(Double(topLayout) * sy)
         let barsPx = max(1, Int(Double(barsHeightLayout) * sy))
+        let dataBottom = min(height, topPx + barsPx)
+        // Gardes prolongées à mi-hauteur des chiffres (≈ 9 pt de layout convertis en pixels).
+        let guardBottom = min(height, dataBottom + max(1, Int((9.0 * sy).rounded())))
         for (index, on) in modules.enumerated() where on {
-            for y in topPx..<min(height, topPx + barsPx) {
+            let bottom = EAN13.guardModules.contains(index) ? guardBottom : dataBottom
+            for y in topPx..<bottom {
                 for dot in 0..<modulePx {
                     let px = left + index * modulePx + dot
                     if px >= 0 && px < width { black[y * width + px] = true }

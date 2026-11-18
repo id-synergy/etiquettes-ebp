@@ -43,4 +43,16 @@ public enum EAN13 {
         bits += "101"
         return bits.map { $0 == "1" }
     }
+
+    /// Positions (index de module, 0…94) des barres de GARDE d'un EAN-13 : garde de début `101`
+    /// (modules 0-2), garde centrale `01010` (modules 45-49), garde de fin `101` (modules 92-94).
+    /// Ces barres descendent plus bas que les barres de données (à mi-hauteur des chiffres), comme
+    /// sur un vrai ticket : c'est le repère visuel attendu et une aide à la lecture par douchette.
+    public static let guardModules: Set<Int> = {
+        var set = Set<Int>()
+        set.formUnion(0...2)     // garde de début
+        set.formUnion(45...49)   // garde centrale
+        set.formUnion(92...94)   // garde de fin
+        return set
+    }()
 }

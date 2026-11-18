@@ -42,6 +42,11 @@ final class LabelCoreTests: XCTestCase {
         XCTAssertEqual(segment, "0111001")
     }
 
+    /// Les barres de garde (début, centre, fin) sont aux bonnes positions, pour leur prolongement
+    /// à mi-hauteur des chiffres dans le rendu.
+    func testGuardModulePositions() {
+        XCTAssertEqual(EAN13.guardModules, Set([0, 1, 2, 45, 46, 47, 48, 49, 92, 93, 94]))
+    }
 
     func testFrenchPrice() {
         let french = Locale(identifier: "fr_FR")
