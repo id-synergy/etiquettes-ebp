@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioToolbox
 
 /// Modèle de recherche d'articles EBP via la gateway : pagination, scroll infini,
 /// anti-rebond de la saisie. Les types LabelCore (GatewayClient, EBPItem…) sont in-module.
@@ -238,10 +239,8 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     @State private var selectionMode = false
     /// Mode scan multiple : chaque scan ajoute au lot (dédoublonnage → +1), sans quitter le scanner.
     @State private var multiScan = false
-    /// Message éphémère de confirmation de scan multiple (« Ajouté », « +1 »…).
+    /// Message éphémère de confirmation de scan multiple (« … ajouté »).
     @State private var scanFeedback: String?
-    /// Réarme le scanner après chaque lecture en mode multiple (recrée la vue → `handled` = false).
-    @State private var scanGeneration = 0
 
     private enum PendingReload { case apply, reset }
     @State private var scanLookupInProgress = false
@@ -394,12 +393,14 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     private var scannerSheet: some View {
         NavigationStack {
             ZStack {
+                // Scan CONTINU : un code-barres maintenu devant la caméra n'est pas relu en boucle.
+                // En mode simple la sheet se ferme au premier scan ; en multiple on gère le lot nous-même.
                 QRScannerView(
                     onFound: { code in handleScannedCode(code) },
                     onError: { message in showingScanner = false; scanMessage = message },
-                    types: QRScannerView.productCodeTypes
+                    types: QRScannerView.productCodeTypes,
+                    continuous: true
                 )
-                .id(scanGeneration)   // recrée la vue après chaque scan multiple pour réarmer
                 .ignoresSafeArea(edges: .bottom)
 
                 VStack {
@@ -467,12 +468,13 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     }
 
     /// Code scanné → recherche EBP par code-barres. En mode simple : ouvre la fiche. En mode
-    /// multiple : ajoute au lot (dédoublonnage → +1) et reste sur le scanner.
+    /// multiple : ajoute l'article au lot (une seule fois) et reste sur le scanner.
     private func handleScannedCode(_ code: String) {
         if multiScan {
             handleMultiScan(code)
             return
         }
+        acceptedScanFeedback()   // confirmation du scan (le scanner continu ne bipe plus lui-même)
         showingScanner = false
         scanLookupInProgress = true
         Task { @MainActor in
@@ -490,25 +492,34 @@ struct ProductListView<Impression: View, Sheets: View>: View {
         }
     }
 
-    /// Scan multiple : interroge EBP, ajoute au lot, affiche un retour, puis réarme le scanner.
+    /// Scan multiple : interroge EBP et ajoute l'article au lot UNE SEULE FOIS. Un article déjà
+    /// présent est ignoré en silence (pas de retour, pas de ré-incrément) : pour imprimer plusieurs
+    /// exemplaires, on scanne une fois puis on règle la quantité dans le lot. Le scanner reste en
+    /// continu et ne relit pas le même code maintenu devant la caméra.
     private func handleMultiScan(_ code: String) {
         Task { @MainActor in
             do {
                 if let product = try await model.lookupBarcode(code) {
-                    let wasDuplicate = batch.add(product)
+                    if batch.contains(product) {
+                        return   // déjà dans le lot : rien à faire, pas de retour
+                    }
+                    batch.add(product)
                     let name = product.label.name.isEmpty ? code : product.label.name
-                    scanFeedback = wasDuplicate
-                        ? String(format: NSLocalizedString("%@ : +1", comment: "Duplicate scan feedback"), name)
-                        : String(format: NSLocalizedString("%@ ajouté", comment: "Added scan feedback"), name)
+                    scanFeedback = String(format: NSLocalizedString("%@ ajouté", comment: "Added scan feedback"), name)
+                    acceptedScanFeedback()
                 } else {
                     scanFeedback = String(format: NSLocalizedString("Introuvable : %@", comment: "Not found feedback"), code)
                 }
             } catch {
                 scanFeedback = EBPSearchModel.message(for: error)
             }
-            // Réarme le scanner (recrée la vue) pour permettre la lecture suivante.
-            scanGeneration += 1
         }
+    }
+
+    /// Retour sensoriel d'un article ajouté au lot : bip + légère vibration.
+    private func acceptedScanFeedback() {
+        AudioServicesPlaySystemSound(1057)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     /// Feuille de filtrage et de tri de la liste.
