@@ -219,6 +219,9 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     let onOpenSettings: () -> Void
     let onOpenHistory: () -> Void
     let onSelect: (MappedProduct) -> Void
+    /// Demande de rouvrir une fiche depuis l'extérieur (ex. « Reprendre » dans l'historique).
+    /// Quand ce binding passe à non-nil, on pousse la fiche de ce produit puis on le remet à nil.
+    @Binding var reopen: MappedProduct?
     /// Ouvre le récap du lot (multi-impression).
     let onOpenBatch: () -> Void
     @ViewBuilder let impression: (MappedProduct) -> Impression
@@ -256,6 +259,7 @@ struct ProductListView<Impression: View, Sheets: View>: View {
          onOpenSettings: @escaping () -> Void,
          onOpenHistory: @escaping () -> Void,
          onSelect: @escaping (MappedProduct) -> Void,
+         reopen: Binding<MappedProduct?>,
          onOpenBatch: @escaping () -> Void,
          @ViewBuilder impression: @escaping (MappedProduct) -> Impression,
          @ViewBuilder sheets: @escaping () -> Sheets) {
@@ -264,6 +268,7 @@ struct ProductListView<Impression: View, Sheets: View>: View {
         self.onOpenSettings = onOpenSettings
         self.onOpenHistory = onOpenHistory
         self.onSelect = onSelect
+        self._reopen = reopen
         self.onOpenBatch = onOpenBatch
         self.impression = impression
         self.sheets = sheets
@@ -355,6 +360,14 @@ struct ProductListView<Impression: View, Sheets: View>: View {
             } message: { Text(scanMessage ?? "") }
             .navigationDestination(item: $selected) { product in
                 ArticleDetailView(product: product, impression: { impression(product) }, sheets: sheets)
+            }
+            // Reprise depuis l'historique : rouvre la fiche du produit demandé. On alimente aussi
+            // l'étiquette courante (onSelect) et on consomme la demande pour ne pas boucler.
+            .onChange(of: reopen) { _, product in
+                guard let product else { return }
+                onSelect(product)
+                selected = product
+                reopen = nil
             }
     }
 

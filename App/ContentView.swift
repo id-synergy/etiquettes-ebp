@@ -28,6 +28,9 @@ struct ContentView: View {
     @State private var showingHistory = false
     /// Onglet de l'historique : 0 = consultés, 1 = imprimés.
     @State private var historyTab = 0
+    /// Produit à rouvrir depuis l'historique (« Reprendre »/« Restaurer ») : la liste pousse sa
+    /// fiche quand ce champ devient non-nil, puis le remet à nil.
+    @State private var reopenProduct: MappedProduct?
     @State private var message: String?
     /// Message après l'ouverture d'un fichier .ebplabel / .ebpprinter reçu (AirDrop…).
     @State private var importMessage: String?
@@ -110,6 +113,7 @@ struct ContentView: View {
                                         ebpQuantity = 1
                                         viewed.record(product.label)   // historique de consultation
                                     },
+                                    reopen: $reopenProduct,
                                     onOpenBatch: { showingBatch = true },
                                     impression: { product in impressionTab(for: product) },
                                     sheets: { Color.clear })
@@ -579,6 +583,15 @@ struct ContentView: View {
         }
     }
 
+    /// Rouvre la fiche d'un article à partir de son étiquette (historique). L'historique ne garde
+    /// que le `ProductLabel` : on reconstruit un `MappedProduct` minimal (détails complémentaires
+    /// absents, repeuplés si l'article est rechargé depuis la gateway). Fermer d'abord l'historique,
+    /// puis demander la navigation, pour que la fiche se pousse après la fermeture de la feuille.
+    private func reopenDetail(for label: ProductLabel) {
+        showingHistory = false
+        reopenProduct = MappedProduct(label: label, priceExclVat: nil, eanWasInvalid: false)
+    }
+
     private func restore(_ entry: PrintedLabel) {
         label = entry.label
         selectedSize = entry.size.rawValue
@@ -655,7 +668,8 @@ struct ContentView: View {
                     Text(entry.viewedAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption).foregroundStyle(.secondary)
                     Button(NSLocalizedString("Reprendre", comment: "Reuse viewed product")) {
-                        label = entry.label; ebpQuantity = 1; showingHistory = false
+                        label = entry.label; ebpQuantity = 1
+                        reopenDetail(for: entry.label)
                     }
                     .buttonStyle(.bordered)
                     .padding(.top, 2)
@@ -681,7 +695,10 @@ struct ContentView: View {
                     Text("\(entry.printedAt.formatted(date: .abbreviated, time: .shortened)) · \(entry.arrangement.title) · \(entry.size.title)")
                         .font(.subheadline).foregroundStyle(.secondary)
                     HStack {
-                        Button(NSLocalizedString("Restaurer", comment: "Restore")) { restore(entry) }
+                        Button(NSLocalizedString("Restaurer", comment: "Restore")) {
+                            restore(entry)
+                            reopenDetail(for: entry.label)
+                        }
                             .buttonStyle(.bordered)
                         Button(NSLocalizedString("Réimprimer", comment: "Reprint")) { reprint(entry) }
                             .buttonStyle(.borderedProminent)
