@@ -137,14 +137,17 @@ struct LabelTemplateEditorView: View {
         }
         .padding(.vertical, 10)
         .background(Color(.secondarySystemGroupedBackground))
-        // Idempotent par clé : à chaque modification la clé change, le rendu (sur MainActor,
-        // thread-safe) est relancé et aboutit toujours à un état terminal.
+        // Idempotent par clé : à chaque modification la clé change et le rendu (sur MainActor,
+        // thread-safe) est relancé, aboutissant toujours à un état terminal. On NE cède pas avant
+        // de rendre : le rendu est court, et céder ouvrait une fenêtre où une relance annulait la
+        // tâche juste après avoir remis l'aperçu à nil, le laissant vide sur un spinner.
         .task(id: liveKey) {
-            liveImage = nil; liveFailed = false
-            await Task.yield()
-            if Task.isCancelled { return }
             let bitmap = try? LabelRenderer.render(sampleLabel, template: draft, size: size, layoutWidth: layoutWidth)
-            if let image = bitmap.flatMap(LabelRenderer.preview) { liveImage = image } else { liveFailed = true }
+            if let image = bitmap.flatMap(LabelRenderer.preview) {
+                liveImage = image; liveFailed = false
+            } else {
+                liveImage = nil; liveFailed = true
+            }
         }
     }
 

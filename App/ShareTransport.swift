@@ -45,15 +45,38 @@ enum QRImageRenderer {
 
 // MARK: - Share sheet iOS
 
-/// Enveloppe `UIActivityViewController` pour partager un fichier via AirDrop, Messages, Fichiers…
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+/// Présente la share sheet AirDrop directement en UIKit, sur le contrôleur le plus haut.
+///
+/// On n'ouvre PAS `UIActivityViewController` via une `.sheet` SwiftUI imbriquée dans une feuille
+/// déjà présentée (ShareQRView) : cette imbrication ne présentait pas la share sheet de façon
+/// fiable (elle ne s'ouvrait pas, ou se refermait aussitôt). Présenter le contrôleur UIKit sur la
+/// vue déjà à l'écran règle le cas, et configure le popover requis sur iPad (sinon : crash).
+@MainActor
+enum ActivityPresenter {
+    static func present(_ items: [Any]) {
+        guard let top = topViewController() else { return }
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        // iPad : une share sheet sans source de popover lève une exception. On l'ancre au centre
+        // de la vue présentatrice (aucune vue source précise à ce stade).
+        if let popover = controller.popoverPresentationController {
+            popover.sourceView = top.view
+            popover.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY,
+                                        width: 0, height: 0)
+            popover.permittedArrowDirections = []
+        }
+        top.present(controller, animated: true)
     }
 
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+    /// Le contrôleur le plus haut de la scène active (au-dessus des feuilles déjà présentées).
+    private static func topViewController() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        guard var top = scene?.keyWindow?.rootViewController
+                ?? scene?.windows.first(where: \.isKeyWindow)?.rootViewController else { return nil }
+        while let presented = top.presentedViewController { top = presented }
+        return top
+    }
 }
 
 // MARK: - Écriture d'un fichier d'échange temporaire

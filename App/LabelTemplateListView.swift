@@ -24,17 +24,31 @@ final class TemplateThumbnailStore: ObservableObject {
         failed = failed.filter { $0.contains(templateID.uuidString) == false }
     }
 
+    /// Pré-remplit le cache de la miniature d'une COPIE à partir de celle de l'original : le
+    /// contenu visuel est identique, seule l'UUID (donc la clé) diffère. Évite que la tuile de la
+    /// copie reste bloquée sur son spinner si son `.task(id:)` est annulé par la réorganisation de
+    /// la liste juste après la duplication (l'image existait, mais la copie ne la retrouvait pas).
+    func seedThumbnail(from source: LabelTemplate, to copy: LabelTemplate,
+                       label: ProductLabel, size: LabelSize, width: Int) {
+        let sourceKey = Self.key(for: label, template: source, size: size, width: width)
+        let copyKey = Self.key(for: label, template: copy, size: size, width: width)
+        if let image = images[sourceKey] { images[copyKey] = image }
+    }
+
     /// Rendu idempotent par clé : si déjà en cache (succès ou échec), on ne régénère rien ;
-    /// sinon on génère et on écrit TOUJOURS un état terminal. Une tâche annulée n'écrit rien,
-    /// la clé sera redemandée au prochain affichage via `.task(id:)`.
+    /// sinon on génère et on écrit TOUJOURS un état terminal, dans la foulée.
+    ///
+    /// On NE cède PAS (`Task.yield`) et on ne teste PAS l'annulation avant d'écrire : le rendu
+    /// d'une miniature est court et synchrone. Céder ouvrait une fenêtre où la réorganisation de
+    /// la liste (ex. après « Dupliquer ») annulait la tâche juste avant l'écriture ; la tuile
+    /// restait alors montée avec la même clé, son `.task(id:)` ne se relançait pas, et le spinner
+    /// tournait indéfiniment alors que l'image avait pu être calculée. En écrivant toujours un
+    /// état terminal, la tuile sort du spinner dès le premier passage.
     func thumbnail(for label: ProductLabel, template: LabelTemplate, size: LabelSize, width: Int) async {
         let key = Self.key(for: label, template: template, size: size, width: width)
         guard images[key] == nil, !failed.contains(key) else { return }
-        await Task.yield()
-        if Task.isCancelled { return }
         let bitmap = try? LabelRenderer.render(label, template: template, size: size, layoutWidth: width)
         let image = bitmap.flatMap(LabelRenderer.preview)
-        guard images[key] == nil, !failed.contains(key) else { return }
         if let image { images[key] = image } else { failed.insert(key) }
     }
 }
@@ -257,7 +271,13 @@ struct LabelTemplateListView: View {
                               systemImage: locked ? "eye" : "pencil")
                     }
                     Button {
-                        if let copy = store.duplicate(id: template.id) { editing = copy }
+                        if let copy = store.duplicate(id: template.id) {
+                            // La copie a le même rendu que l'original : on réutilise sa miniature
+                            // déjà en cache pour que sa tuile n'apparaisse pas sur un spinner.
+                            thumbnails.seedThumbnail(from: template, to: copy, label: previewLabel,
+                                                     size: size, width: layoutWidth)
+                            editing = copy
+                        }
                     } label: {
                         Label(NSLocalizedString("Dupliquer", comment: "Duplicate"), systemImage: "plus.square.on.square")
                     }

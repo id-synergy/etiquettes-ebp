@@ -31,6 +31,18 @@ final class LabelCoreTests: XCTestCase {
         XCTAssertEqual(bits.filter { $0 }.count, 45)
     }
 
+    /// Garde-fou de la table G-code : un chiffre 5 en position gauche paire doit
+    /// être encodé `0111001` (et non `0110001`, qui est son L-code). Un EAN dont
+    /// la parité place un 5 en G était auparavant mal encodé → refusé par les
+    /// douchettes de caisse alors que l'app le relisait.
+    func testLeftEvenFiveEncoding() throws {
+        // Premier chiffre 1 → parité OOEOEE ; le 3ᵉ chiffre de données (5) tombe en G-code.
+        let bits = try EAN13.modules(for: "1005000000004")
+        let segment = Array(bits[17..<24]).map { $0 ? "1" : "0" }.joined()
+        XCTAssertEqual(segment, "0111001")
+    }
+
+
     func testFrenchPrice() {
         let french = Locale(identifier: "fr_FR")
         XCTAssertEqual(PriceFormatter.formatted("5,95", locale: french), "5,95 €")

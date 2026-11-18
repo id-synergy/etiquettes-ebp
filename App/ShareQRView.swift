@@ -19,8 +19,6 @@ struct ShareQRView: View {
     var forceFile = false
     let onClose: () -> Void
 
-    @State private var shareURL: URL?
-    @State private var showingShare = false
     /// QR généré UNE fois (rendu synchrone potentiellement lourd) et mis en cache, jamais recalculé
     /// à chaque passe de `body`. `nil` tant que non généré OU si le payload ne tient pas dans un QR.
     @State private var qrImage: UIImage?
@@ -78,9 +76,6 @@ struct ShareQRView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { Button(NSLocalizedString("Fermer", comment: "Close"), action: onClose) }
             .task { buildQRIfNeeded() }
-            .sheet(isPresented: $showingShare) {
-                if let shareURL { ShareSheet(items: [shareURL]) }
-            }
         }
     }
 
@@ -117,8 +112,7 @@ struct ShareQRView: View {
     private func fileButton(label: String, prominent: Bool) -> some View {
         let action = {
             guard let url = ShareFileWriter.write(payload, name: fileName, ext: fileExtension) else { return }
-            shareURL = url
-            showingShare = true
+            ActivityPresenter.present([url])
         }
         let content = Label(label, systemImage: "square.and.arrow.up")
             .font(.headline)
