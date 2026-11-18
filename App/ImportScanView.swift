@@ -86,6 +86,9 @@ struct ImportScanView: View {
                     Button(NSLocalizedString("Annuler", comment: "Cancel"), action: onClose)
                 }
             }
+            // Pendant une collecte paginée en cours, on empêche la fermeture par glissement : un
+            // faux geste perdrait les pages déjà scannées. On ferme par « Annuler ».
+            .interactiveDismissDisabled(pagedProgress.received > 0 && outcome == nil)
         }
     }
 

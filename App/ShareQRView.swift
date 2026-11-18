@@ -78,6 +78,9 @@ struct ShareQRView: View {
                 }
             }
             .task { buildQRIfNeeded() }
+            // En mode QR paginé, on empêche la fermeture par glissement : un faux geste pendant
+            // que l'autre appareil scanne les pages romprait le transfert. On ferme par « Terminé ».
+            .interactiveDismissDisabled(showingPaged)
         }
     }
 
