@@ -361,14 +361,32 @@ struct ProductListView<Impression: View, Sheets: View>: View {
             .navigationDestination(item: $selected) { product in
                 ArticleDetailView(product: product, impression: { impression(product) }, sheets: sheets)
             }
-            // Reprise depuis l'historique : rouvre la fiche du produit demandé. On alimente aussi
-            // l'étiquette courante (onSelect) et on consomme la demande pour ne pas boucler.
+            // Reprise depuis l'historique : rouvre la fiche du produit demandé. On tente de
+            // RECHARGER l'article complet depuis la gateway (via son code-barres) pour retrouver
+            // stock, HT et TVA que l'historique ne mémorise pas. Repli sur la version mémorisée si
+            // le rechargement échoue (hors-ligne, article introuvable, pas de code-barres).
             .onChange(of: reopen) { _, product in
                 guard let product else { return }
-                onSelect(product)
-                selected = product
                 reopen = nil
+                Task { await reopenReloading(product) }
             }
+    }
+
+    /// Rouvre la fiche d'un produit repris de l'historique en la rafraîchissant depuis la gateway.
+    @MainActor
+    private func reopenReloading(_ stored: MappedProduct) async {
+        let code = stored.label.ean.trimmingCharacters(in: .whitespacesAndNewlines)
+        var fresh: MappedProduct?
+        if !code.isEmpty {
+            scanLookupInProgress = true
+            fresh = try? await model.lookupBarcode(code)
+            scanLookupInProgress = false
+        }
+        // La version rechargée garde les détails (stock, HT, TVA) ; sinon on ouvre la version
+        // mémorisée, dont la fiche n'affiche que ce que l'étiquette contient.
+        let product = fresh ?? stored
+        onSelect(product)
+        selected = product
     }
 
     /// Scanner de code-barres / QR. Mode simple : un scan ouvre la fiche. Mode multiple : chaque
