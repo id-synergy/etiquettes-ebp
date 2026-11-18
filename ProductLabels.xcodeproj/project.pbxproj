@@ -68,6 +68,7 @@
 		FA0000000000000000000005 /* LabelTemplateEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000015 /* LabelTemplateEditorView.swift */; };
 		FA0000000000000000000006 /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000016 /* QRCode.swift */; };
 		FA0000000000000000000007 /* SharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000017 /* SharePayload.swift */; };
+		FA0000000000000000000031 /* QRPagination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000041 /* QRPagination.swift */; };
 		FA0000000000000000000008 /* ShareTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000018 /* ShareTransport.swift */; };
 		FA0000000000000000000009 /* ShareQRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000019 /* ShareQRView.swift */; };
 		FA000000000000000000000A /* ImportScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA000000000000000000001A /* ImportScanView.swift */; };
@@ -161,6 +162,7 @@
 		FA0000000000000000000015 /* LabelTemplateEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelTemplateEditorView.swift; sourceTree = "<group>"; };
 		FA0000000000000000000016 /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
 		FA0000000000000000000017 /* SharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharePayload.swift; sourceTree = "<group>"; };
+		FA0000000000000000000041 /* QRPagination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPagination.swift; sourceTree = "<group>"; };
 		FA0000000000000000000018 /* ShareTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareTransport.swift; sourceTree = "<group>"; };
 		FA0000000000000000000019 /* ShareQRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareQRView.swift; sourceTree = "<group>"; };
 		FA000000000000000000001A /* ImportScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportScanView.swift; sourceTree = "<group>"; };
@@ -269,6 +271,7 @@
 				FA0000000000000000000011 /* LabelTemplate.swift */,
 				FA0000000000000000000016 /* QRCode.swift */,
 				FA0000000000000000000017 /* SharePayload.swift */,
+				FA0000000000000000000041 /* QRPagination.swift */,
 				FA0000000000000000000012 /* LabelTemplateLibrary.swift */,
 				EB0000000000000000000074 /* PrintQueue.swift */,
 				516D0672BE4E8CAD47F01920 /* EAN13.swift */,
@@ -497,6 +500,7 @@
 				FA0000000000000000000004 /* LabelTemplateListView.swift in Sources */,
 				FA0000000000000000000005 /* LabelTemplateEditorView.swift in Sources */,
 				FA0000000000000000000007 /* SharePayload.swift in Sources */,
+				FA0000000000000000000031 /* QRPagination.swift in Sources */,
 				FA0000000000000000000008 /* ShareTransport.swift in Sources */,
 				FA0000000000000000000009 /* ShareQRView.swift in Sources */,
 				FA000000000000000000000A /* ImportScanView.swift in Sources */,

@@ -4,7 +4,8 @@ import SwiftUI
 /// les infos de fichier (nom + extension). Elle décide du transport :
 /// - si le JSON tient sous `SharePayload.qrByteLimit` ET qu'on n'a pas forcé le fichier → QR à
 ///   l'écran, que l'autre téléphone scanne ;
-/// - sinon → bouton « Partager le fichier » qui ouvre la share sheet (AirDrop, Messages…).
+/// - sinon → bouton « Partager le fichier » (AirDrop, Messages…), ET une option « Partager par QR »
+///   qui affiche le payload en PLUSIEURS QR paginés (défilement manuel), pour les cas sans AirDrop.
 ///
 /// Esthétique Liquid Glass cohérente avec le reste de l'app (carte arrondie, QR sur fond blanc).
 struct ShareQRView: View {
@@ -26,8 +27,14 @@ struct ShareQRView: View {
     /// (on patiente) de « QR impossible » (on montre le repli fichier).
     @State private var qrResolved = false
 
-    /// Le QR est envisageable si on ne force pas le fichier et que ça tient sous la limite. La
-    /// génération effective (et donc le passage éventuel au repli fichier) est tranchée dans `.task`.
+    /// Pages QR paginées (une par QR) + image rendue de la page courante, calculées à la demande
+    /// quand l'utilisateur choisit « Partager par QR ».
+    @State private var pages: [String] = []
+    @State private var pageIndex = 0
+    @State private var pageImage: UIImage?
+    @State private var showingPaged = false
+
+    /// Le QR simple est envisageable si on ne force pas le fichier et que ça tient sous la limite.
     private var qrEligible: Bool {
         !forceFile && payload.count <= SharePayload.qrByteLimit
     }
@@ -46,24 +53,13 @@ struct ShareQRView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 22) {
-                    VStack(spacing: 8) {
-                        Text(title).font(.title2.weight(.bold)).multilineTextAlignment(.center)
-                        Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.horizontal, 24).padding(.top, 8)
-
-                    if let qrImage {
-                        qrCard(qrImage)
-                        Text(NSLocalizedString("Scannez ce QR code depuis l’autre téléphone, via « Importer » dans l’app.", comment: "Share QR hint"))
-                            .font(.footnote).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center).padding(.horizontal, 32)
-                        fileButton(label: NSLocalizedString("Partager par fichier (AirDrop…)", comment: "Share file alt"),
-                                   prominent: false)
+                    header
+                    if showingPaged {
+                        pagedSection
+                    } else if let qrImage {
+                        singleQRSection(qrImage)
                     } else if qrResolved {
-                        fileCard
-                        fileButton(label: NSLocalizedString("Partager le fichier", comment: "Share file"),
-                                   prominent: true)
+                        fileSection
                     } else {
                         ProgressView().padding(.top, 40)
                     }
@@ -74,10 +70,117 @@ struct ShareQRView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle(NSLocalizedString("Partager", comment: "Share title"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { Button(NSLocalizedString("Fermer", comment: "Close"), action: onClose) }
+            .toolbar {
+                if showingPaged {
+                    Button(NSLocalizedString("Terminé", comment: "Done paged share")) { showingPaged = false }
+                } else {
+                    Button(NSLocalizedString("Fermer", comment: "Close"), action: onClose)
+                }
+            }
             .task { buildQRIfNeeded() }
         }
     }
+
+    private var header: some View {
+        VStack(spacing: 8) {
+            Text(title).font(.title2.weight(.bold)).multilineTextAlignment(.center)
+            Text(showingPaged
+                 ? NSLocalizedString("Scannez toutes les pages depuis l’autre appareil, via « Importer ». L’ordre n’a pas d’importance.", comment: "Paged share subtitle")
+                 : subtitle)
+                .font(.subheadline).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 24).padding(.top, 8)
+    }
+
+    // MARK: - QR simple (payload court)
+
+    private func singleQRSection(_ image: UIImage) -> some View {
+        Group {
+            qrCard(image)
+            Text(NSLocalizedString("Scannez ce QR code depuis l’autre téléphone, via « Importer » dans l’app.", comment: "Share QR hint"))
+                .font(.footnote).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center).padding(.horizontal, 32)
+            fileButton(label: NSLocalizedString("Partager par fichier (AirDrop…)", comment: "Share file alt"),
+                       prominent: false)
+        }
+    }
+
+    // MARK: - Payload long : fichier + option QR paginé
+
+    private var fileSection: some View {
+        Group {
+            fileCard
+            fileButton(label: NSLocalizedString("Partager le fichier", comment: "Share file"),
+                       prominent: true)
+            Button {
+                startPagedShare()
+            } label: {
+                Label(NSLocalizedString("Partager par QR (plusieurs pages)", comment: "Share via paged QR"),
+                      systemImage: "qrcode")
+                    .font(.headline)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .padding(.horizontal, 24)
+        }
+    }
+
+    // MARK: - QR paginé (défilement manuel)
+
+    private var pagedSection: some View {
+        VStack(spacing: 18) {
+            if let pageImage {
+                qrCard(pageImage)
+            } else {
+                ProgressView().frame(width: 240, height: 240)
+            }
+
+            Text(String(format: NSLocalizedString("Page %d sur %d", comment: "QR page i of N"),
+                        pageIndex + 1, max(pages.count, 1)))
+                .font(.headline.monospacedDigit())
+
+            HStack(spacing: 16) {
+                Button {
+                    if pageIndex > 0 { pageIndex -= 1; renderCurrentPage() }
+                } label: {
+                    Label(NSLocalizedString("Précédent", comment: "Previous page"), systemImage: "chevron.left")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(pageIndex == 0)
+
+                Button {
+                    if pageIndex < pages.count - 1 { pageIndex += 1; renderCurrentPage() }
+                } label: {
+                    Label(NSLocalizedString("Suivant", comment: "Next page"), systemImage: "chevron.right")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(pageIndex >= pages.count - 1)
+            }
+            .controlSize(.large)
+            .padding(.horizontal, 24)
+
+            Text(NSLocalizedString("Sur l’autre appareil, laissez le scanner ouvert et présentez chaque page l’une après l’autre.", comment: "Paged share tip"))
+                .font(.footnote).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center).padding(.horizontal, 32)
+        }
+    }
+
+    private func startPagedShare() {
+        pages = QRPagination.paginate(payload) ?? []
+        pageIndex = 0
+        renderCurrentPage()
+        showingPaged = true
+    }
+
+    private func renderCurrentPage() {
+        guard pages.indices.contains(pageIndex) else { pageImage = nil; return }
+        pageImage = QRImageRenderer.image(for: pages[pageIndex])
+    }
+
+    // MARK: - Briques
 
     private func qrCard(_ image: UIImage) -> some View {
         Image(uiImage: image)
@@ -98,7 +201,7 @@ struct ShareQRView: View {
                 .font(.system(size: 44)).foregroundStyle(.tint)
             Text(NSLocalizedString("Trop volumineux pour un QR code", comment: "Too big for QR"))
                 .font(.headline)
-            Text(NSLocalizedString("Le partage se fait par un fichier à envoyer à l’autre téléphone (AirDrop, Messages…). Il l’ouvre pour importer.", comment: "File share explain"))
+            Text(NSLocalizedString("Le partage se fait par un fichier à envoyer à l’autre téléphone (AirDrop, Messages…). Il l’ouvre pour importer. Sans AirDrop, utilisez le partage par QR.", comment: "File share explain"))
                 .font(.footnote).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
