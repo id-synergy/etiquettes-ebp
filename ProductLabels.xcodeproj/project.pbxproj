@@ -72,6 +72,7 @@
 		FA0000000000000000000008 /* ShareTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000018 /* ShareTransport.swift */; };
 		FA0000000000000000000009 /* ShareQRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000019 /* ShareQRView.swift */; };
 		FA000000000000000000000A /* ImportScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA000000000000000000001A /* ImportScanView.swift */; };
+		FA0000000000000000000032 /* ShareImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000042 /* ShareImporter.swift */; };
 		FA000000000000000000000B /* PrinterSettingsSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA000000000000000000001B /* PrinterSettingsSharing.swift */; };
 /* End PBXBuildFile section */
 
@@ -166,6 +167,7 @@
 		FA0000000000000000000018 /* ShareTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareTransport.swift; sourceTree = "<group>"; };
 		FA0000000000000000000019 /* ShareQRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareQRView.swift; sourceTree = "<group>"; };
 		FA000000000000000000001A /* ImportScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportScanView.swift; sourceTree = "<group>"; };
+		FA0000000000000000000042 /* ShareImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImporter.swift; sourceTree = "<group>"; };
 		FA000000000000000000001B /* PrinterSettingsSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrinterSettingsSharing.swift; sourceTree = "<group>"; };
 		FE99AF2776C04A5A8568E934 /* ProductLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProductLabel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -259,6 +261,7 @@
 				FA0000000000000000000018 /* ShareTransport.swift */,
 				FA0000000000000000000019 /* ShareQRView.swift */,
 				FA000000000000000000001A /* ImportScanView.swift */,
+				FA0000000000000000000042 /* ShareImporter.swift */,
 				FA000000000000000000001B /* PrinterSettingsSharing.swift */,
 			);
 			path = App;
@@ -504,6 +507,7 @@
 				FA0000000000000000000008 /* ShareTransport.swift in Sources */,
 				FA0000000000000000000009 /* ShareQRView.swift in Sources */,
 				FA000000000000000000000A /* ImportScanView.swift in Sources */,
+				FA0000000000000000000032 /* ShareImporter.swift in Sources */,
 				FA000000000000000000000B /* PrinterSettingsSharing.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

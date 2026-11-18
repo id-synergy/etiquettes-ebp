@@ -10,9 +10,12 @@ enum ShareDocumentType {
     static let template = UTType(exportedAs: "tech.idsynergy.etiquettes-ebp.label", conformingTo: .json)
     /// Des réglages d'imprimante.
     static let printer = UTType(exportedAs: "tech.idsynergy.etiquettes-ebp.printer", conformingTo: .json)
+    /// Export combiné : modèles + réglages.
+    static let bundle = UTType(exportedAs: "tech.idsynergy.etiquettes-ebp.bundle", conformingTo: .json)
 
     static let templateExtension = "ebplabel"
     static let printerExtension = "ebpprinter"
+    static let bundleExtension = "ebpall"
 }
 
 // MARK: - Génération d'une image QR
@@ -111,9 +114,10 @@ enum ShareFileWriter {
 
 // MARK: - Ouverture d'un fichier reçu
 
-/// Importe un fichier .ebplabel / .ebpprinter reçu (AirDrop, Messages, Fichiers…). Choisit la
-/// cible selon l'EXTENSION, lit, valide, applique, et renvoie un message clair (succès ou erreur).
-/// Ne lève jamais : un fichier illisible donne un message, pas un crash.
+/// Importe un fichier .ebplabel / .ebpprinter / .ebpall reçu (AirDrop, Messages, Fichiers…). Le type
+/// réel est lu dans le JSON (champ `kind`), pas déduit de l'extension : modèles, réglages ou export
+/// combiné sont appliqués par le même import universel. Ne lève jamais : un fichier illisible donne
+/// un message, pas un crash.
 @MainActor
 enum ShareFileImporter {
     static func open(_ url: URL, templates: LabelTemplateLibraryStore,
@@ -122,28 +126,10 @@ enum ShareFileImporter {
         let needsAccess = url.startAccessingSecurityScopedResource()
         defer { if needsAccess { url.stopAccessingSecurityScopedResource() } }
 
-        guard let data = try? Data(contentsOf: url) else {
+        guard let data = try? Data(contentsOf: url),
+              let json = String(data: data, encoding: .utf8) else {
             return NSLocalizedString("Fichier illisible.", comment: "Unreadable file")
         }
-        switch url.pathExtension.lowercased() {
-        case ShareDocumentType.templateExtension:
-            switch TemplateSharePayload.decode(data) {
-            case .success(let payload):
-                let ids = templates.importTemplates(payload.templates)
-                return String(format: NSLocalizedString("%d modèle(s) importé(s).", comment: "Imported N templates"), ids.count)
-            case .failure(let error):
-                return error.userMessage
-            }
-        case ShareDocumentType.printerExtension:
-            switch PrinterSettingsPayload.decode(data) {
-            case .success(let payload):
-                PrinterSettingsSharing.apply(payload, setup: setup, printer: printer)
-                return NSLocalizedString("Réglages imprimante appliqués.", comment: "Printer settings applied")
-            case .failure(let error):
-                return error.userMessage
-            }
-        default:
-            return NSLocalizedString("Type de fichier non reconnu par l’app.", comment: "Unknown file type")
-        }
+        return ShareImporter.importJSON(json, templates: templates, setup: setup, printer: printer).message
     }
 }

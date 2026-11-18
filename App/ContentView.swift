@@ -31,6 +31,8 @@ struct ContentView: View {
     /// Produit à rouvrir depuis l'historique (« Reprendre »/« Restaurer ») : la liste pousse sa
     /// fiche quand ce champ devient non-nil, puis le remet à nil.
     @State private var reopenProduct: MappedProduct?
+    /// Feuille de partage/import ouverte depuis la section « Partage » des Réglages.
+    @State private var settingsShare: SettingsShareSheet?
     @State private var message: String?
     /// Message après l'ouverture d'un fichier .ebplabel / .ebpprinter reçu (AirDrop…).
     @State private var importMessage: String?
@@ -833,12 +835,97 @@ struct ContentView: View {
                     Text("Le français et l’anglais sont disponibles. iOS applique le choix à toute l’application.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
+                shareSyncSection
                 GatewaySettingsSection(settings: gateway)
             }
             .navigationTitle("Réglages")
             .toolbar { Button("Fermer") { showingSettings = false } }
+            .sheet(item: $settingsShare) { sheet in settingsShareSheet(sheet) }
         }
     }
+
+    /// Section « Partage entre téléphones » des Réglages : tout exporter, exports individuels, et un
+    /// import universel (scan QR) qui reconnaît modèles, réglages ou export combiné.
+    private var shareSyncSection: some View {
+        Section {
+            Button {
+                settingsShare = .exportAll
+            } label: {
+                Label("Tout exporter (modèles + réglages)", systemImage: "square.and.arrow.up.on.square")
+            }
+            .disabled(exportableTemplates.isEmpty)
+            Button {
+                settingsShare = .exportTemplates
+            } label: {
+                Label("Exporter les modèles d’étiquette", systemImage: "square.and.arrow.up")
+            }
+            .disabled(templates.all.isEmpty)
+            Button {
+                settingsShare = .exportPrinter
+            } label: {
+                Label("Exporter les réglages imprimante", systemImage: "printer")
+            }
+            Button {
+                settingsShare = .importAny
+            } label: {
+                Label("Importer (scanner un QR)", systemImage: "qrcode.viewfinder")
+            }
+        } header: {
+            Text("Partage entre téléphones")
+        } footer: {
+            Text("Exportez vos modèles et réglages vers un autre téléphone par AirDrop ou QR code, ou importez-les. L’appairage Bluetooth n’est pas transféré.")
+        }
+    }
+
+    /// Les modèles perso + tous les presets, exportés comme modèles éditables sur l'autre appareil.
+    private var exportableTemplates: [LabelTemplate] { templates.all }
+
+    @ViewBuilder
+    private func settingsShareSheet(_ sheet: SettingsShareSheet) -> some View {
+        switch sheet {
+        case .exportAll:
+            let printerPayload = PrinterSettingsSharing.capture(setup: setup, printer: printer)
+            let bundle = CombinedSharePayload(templates: exportableTemplates, printer: printerPayload)
+            ShareQRView(
+                title: NSLocalizedString("Tout exporter", comment: "Export all title"),
+                subtitle: String(format: NSLocalizedString("%d modèle(s) et les réglages imprimante.", comment: "Export all subtitle"), exportableTemplates.count),
+                payload: bundle.encoded(),
+                fileName: NSLocalizedString("Étiquettes EBP — tout", comment: "Export all file name"),
+                fileExtension: ShareDocumentType.bundleExtension,
+                forceFile: true,
+                onClose: { settingsShare = nil })
+        case .exportTemplates:
+            ShareQRView(
+                title: NSLocalizedString("Modèles d’étiquette", comment: "Templates share title"),
+                subtitle: String(format: NSLocalizedString("%d modèle(s) à partager.", comment: "Templates share subtitle"), exportableTemplates.count),
+                payload: TemplateSharePayload(templates: exportableTemplates).encoded(),
+                fileName: NSLocalizedString("Modèles d’étiquette", comment: "Templates file name"),
+                fileExtension: ShareDocumentType.templateExtension,
+                forceFile: true,
+                onClose: { settingsShare = nil })
+        case .exportPrinter:
+            let payload = PrinterSettingsSharing.capture(setup: setup, printer: printer)
+            ShareQRView(
+                title: NSLocalizedString("Réglages imprimante", comment: "Printer settings share title"),
+                subtitle: PrinterSettingsSharing.summary(for: payload),
+                payload: payload.encoded(),
+                fileName: NSLocalizedString("Réglages imprimante", comment: "Printer settings file name"),
+                fileExtension: ShareDocumentType.printerExtension,
+                onClose: { settingsShare = nil })
+        case .importAny:
+            ImportScanView(
+                title: NSLocalizedString("Importer", comment: "Import universal title"),
+                hint: NSLocalizedString("Scannez le QR affiché par l’autre téléphone (modèles, réglages ou tout).", comment: "Import universal hint"),
+                onScanned: { raw in ShareImporter.importJSON(raw, templates: templates, setup: setup, printer: printer) },
+                onClose: { settingsShare = nil })
+        }
+    }
+}
+
+/// Feuille ouverte depuis la section Partage des Réglages.
+private enum SettingsShareSheet: String, Identifiable {
+    case exportAll, exportTemplates, exportPrinter, importAny
+    var id: String { rawValue }
 }
 
 private struct ResponsiveCardStyle: ButtonStyle {

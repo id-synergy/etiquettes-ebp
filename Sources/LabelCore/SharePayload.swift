@@ -28,6 +28,7 @@ public enum SharePayload {
     public enum Kind: String, Codable, Sendable {
         case templates   // un ou plusieurs modèles d'étiquette
         case printer     // des réglages d'imprimante
+        case bundle      // modèles ET réglages réunis (export « tout »)
     }
 }
 
@@ -193,6 +194,78 @@ public struct PrinterSettingsPayload: Codable, Equatable, Sendable {
     }
 
     public static func decode(fromQRString raw: String) -> Result<PrinterSettingsPayload, ShareDecodeError> {
+        guard let data = raw.data(using: .utf8) else { return .failure(.notJSON) }
+        return decode(data)
+    }
+}
+
+// MARK: - Partage combiné (modèles + réglages)
+
+/// Export « TOUT » : réunit les MODÈLES d'étiquette et les RÉGLAGES d'imprimante dans un seul
+/// payload, pour tout transférer en une fois (un QR/fichier, un seul import). Les deux parties sont
+/// optionnelles et décodées en tolérant : un bundle sans modèles n'applique que les réglages, et
+/// inversement.
+public struct CombinedSharePayload: Codable, Equatable {
+    public var version: Int
+    public var kind: SharePayload.Kind
+    public var templates: [LabelTemplate]
+    public var printer: PrinterSettingsPayload?
+
+    public init(templates: [LabelTemplate], printer: PrinterSettingsPayload?,
+                version: Int = SharePayload.currentVersion) {
+        self.version = version
+        self.kind = .bundle
+        self.templates = templates.map { TemplateSharePayload(templates: [$0]).templates[0] }
+        self.printer = printer
+    }
+
+    private enum CodingKeys: String, CodingKey { case version, kind, templates, printer }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        kind = (try? c.decode(SharePayload.Kind.self, forKey: .kind)) ?? .bundle
+        templates = (try? c.decodeIfPresent([LabelTemplate].self, forKey: .templates)) ?? []
+        printer = try? c.decodeIfPresent(PrinterSettingsPayload.self, forKey: .printer)
+    }
+
+    /// true si le bundle contient au moins une chose à appliquer.
+    public var hasAnything: Bool {
+        !templates.isEmpty || (printer?.hasAnySetting ?? false)
+    }
+
+    public func encoded() -> Data {
+        (try? JSONEncoder().encode(self)) ?? Data()
+    }
+
+    public static func decode(_ data: Data) -> Result<CombinedSharePayload, ShareDecodeError> {
+        decodeValidatingVersion(data, expectedKind: .bundle) { (payload: CombinedSharePayload) in
+            payload.hasAnything ? .success(payload) : .failure(.empty)
+        }
+    }
+}
+
+/// Un partage reçu, quel que soit son type : l'import universel route selon le `kind` lu.
+public enum AnySharePayload {
+    case templates(TemplateSharePayload)
+    case printer(PrinterSettingsPayload)
+    case bundle(CombinedSharePayload)
+
+    /// Décode un JSON de partage SANS connaître son type à l'avance : lit `kind`, puis décode et
+    /// valide la bonne structure. Sert à l'import universel (un seul bouton « Importer »).
+    public static func decode(_ data: Data) -> Result<AnySharePayload, ShareDecodeError> {
+        guard let header = try? JSONDecoder().decode(ShareEnvelopeHeader.self, from: data) else {
+            return .failure(.notJSON)
+        }
+        switch header.kind {
+        case .templates: return TemplateSharePayload.decode(data).map(AnySharePayload.templates)
+        case .printer:   return PrinterSettingsPayload.decode(data).map(AnySharePayload.printer)
+        case .bundle:    return CombinedSharePayload.decode(data).map(AnySharePayload.bundle)
+        case .none:      return .failure(.malformed("type de partage absent"))
+        }
+    }
+
+    public static func decode(fromQRString raw: String) -> Result<AnySharePayload, ShareDecodeError> {
         guard let data = raw.data(using: .utf8) else { return .failure(.notJSON) }
         return decode(data)
     }

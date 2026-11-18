@@ -41,6 +41,13 @@
         <key>LSItemContentTypes</key>
         <array><string>tech.idsynergy.etiquettes-ebp.printer</string></array>
     </dict>
+    <dict>
+        <key>CFBundleTypeName</key><string>Export complet EBP</string>
+        <key>CFBundleTypeRole</key><string>Editor</string>
+        <key>LSHandlerRank</key><string>Owner</string>
+        <key>LSItemContentTypes</key>
+        <array><string>tech.idsynergy.etiquettes-ebp.bundle</string></array>
+    </dict>
 </array>
 <key>UTExportedTypeDeclarations</key>
 <array>
@@ -62,6 +69,16 @@
         <key>UTTypeTagSpecification</key>
         <dict>
             <key>public.filename-extension</key><array><string>ebpprinter</string></array>
+        </dict>
+    </dict>
+    <dict>
+        <key>UTTypeIdentifier</key><string>tech.idsynergy.etiquettes-ebp.bundle</string>
+        <key>UTTypeDescription</key><string>Export complet EBP</string>
+        <key>UTTypeConformsTo</key>
+        <array><string>public.json</string></array>
+        <key>UTTypeTagSpecification</key>
+        <dict>
+            <key>public.filename-extension</key><array><string>ebpall</string></array>
         </dict>
     </dict>
 </array>
