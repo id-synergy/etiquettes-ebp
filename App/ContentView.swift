@@ -13,6 +13,8 @@ struct ContentView: View {
     @StateObject private var viewed = ViewedProductStore()
     /// Lot de produits pour la multi-impression (sélection liste + scan multiple).
     @StateObject private var batch = BatchStore()
+    /// Vérifie au démarrage si une version plus récente est sur l'App Store.
+    @StateObject private var updateChecker = AppUpdateChecker()
     /// État courant de la file multi-impression, nil hors impression. Piloté par `runBatchQueue`.
     @State private var queueState: PrintQueueMachine.State?
     /// Demande d'ouverture du récap multi-produits (navigation depuis liste/scan).
@@ -161,6 +163,16 @@ struct ContentView: View {
                 }
                 setup.supportedLabels = { model in BrotherPrinterService.supportedLabelIndices(for: model) }
                 if isNetum { netum.reconnect() } else if !isBrother { printer.reconnect() }
+                updateChecker.checkOnce()
+            }
+            .alert(NSLocalizedString("Mise à jour disponible", comment: "Update available title"),
+                   isPresented: Binding(get: { updateChecker.available != nil },
+                                        set: { if !$0 { updateChecker.dismiss() } })) {
+                Button(NSLocalizedString("Mettre à jour", comment: "Update now")) { updateChecker.openStore() }
+                Button(NSLocalizedString("Plus tard", comment: "Later"), role: .cancel) { updateChecker.dismiss() }
+            } message: {
+                Text(String(format: NSLocalizedString("La version %@ est disponible sur l’App Store.", comment: "Update available message"),
+                            updateChecker.available?.version ?? ""))
             }
         }
     }
