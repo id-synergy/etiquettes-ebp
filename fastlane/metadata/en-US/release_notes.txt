@@ -1,11 +1,13 @@
-What's new:
-- Device-to-device sharing from Settings: export your label templates and printer settings, together or separately, and import them all in one place.
-- Multi-page QR sharing when a payload is too large for a single code (handy without AirDrop). The receiving device verifies that everything arrived before applying.
-- Update check on launch: the app lets you know when a new version is available.
-- History: "Resume" and "Restore" now open the correct item, with up-to-date stock and prices.
-- Smoother scanning: the same code is no longer re-read in a loop; in multi-scan, an item is added only once.
+This version greatly improves barcodes and how labels adapt.
 
-Fixes:
-- Fixed EAN-13 barcode: some labels were not read by checkout scanners.
-- AirDrop sharing made reliable (templates and settings).
-- iPhone locked to portrait again (iPad stays flexible).
+Barcodes:
+- New per-cell formats: EAN-13, EAN-8, UPC-A, Code 128, Code 39 and QR.
+- Standards-compliant generation: your codes scan reliably at the checkout.
+- Digits are now aligned under the bars, like a real store label.
+- New "Full-width code" option for long codes, and size now controls the code's dimensions.
+- Warning when a code may be too small to scan, plus guidance to pick the right format.
+
+Labels and printing:
+- Continuous roll: height follows the content, with no wasted space.
+- Die-cut label: all content scales to fit the label, nothing is cut off.
+- QR code is never truncated, and the text under the code stays visible.

@@ -1,11 +1,13 @@
-Nouveautés :
-- Partage entre téléphones depuis les Réglages : exportez vos modèles d'étiquette et vos réglages d'imprimante, ensemble ou séparément, et importez-les en un seul endroit.
-- Partage par QR code en plusieurs pages quand c'est trop long pour un seul code (utile sans AirDrop). L'appareil qui reçoit vérifie que tout est bien arrivé avant d'appliquer.
-- Vérification de mise à jour au démarrage : l'app vous prévient quand une nouvelle version est disponible.
-- Historique : « Reprendre » et « Restaurer » ouvrent la fiche du bon article, avec son stock et ses prix à jour.
-- Scan plus fluide : le même code n'est plus relu en boucle ; en scan multiple, un article n'est ajouté qu'une fois.
+Cette version améliore en profondeur les codes-barres et l'adaptation aux étiquettes.
 
-Corrections :
-- Code-barres EAN-13 corrigé : certaines étiquettes n'étaient pas lues par les douchettes de caisse.
-- Partage par AirDrop fiabilisé (modèles et réglages).
-- iPhone de nouveau bloqué en mode portrait (l'iPad reste libre).
+Codes-barres :
+- Nouveaux formats au choix, par cellule : EAN-13, EAN-8, UPC-A, Code 128, Code 39 et QR.
+- Génération conforme aux normes : vos codes sont lus correctement par les douchettes.
+- Les chiffres sont désormais calés sous les barres, comme sur une étiquette magasin.
+- Nouvelle option « Code sur toute la largeur » pour les codes longs, et la taille règle maintenant la dimension du code.
+- Alerte quand un code risque d'être trop petit pour être lu, et aide au choix du bon format.
+
+Étiquettes et impression :
+- Rouleau continu : la hauteur suit le contenu, sans espace inutile.
+- Étiquette prédécoupée : tout le contenu s'adapte pour tenir dans l'étiquette, plus rien n'est coupé.
+- QR code plus jamais tronqué, et texte sous le code toujours visible.
