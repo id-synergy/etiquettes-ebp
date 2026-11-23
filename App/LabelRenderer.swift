@@ -446,14 +446,14 @@ enum LabelRenderer {
         guard n > 0 else { return }
 
         // Espace disponible en pixels. Le QR est carré : sa taille est limitée par la plus petite
-        // des trois dimensions — largeur de cellule, hauteur de bloc, et surtout la place qui RESTE
-        // réellement jusqu'au bas de l'étiquette. Ce dernier plafond garantit qu'un grand format ne
-        // fait jamais déborder le QR hors de l'étiquette (donc jamais coupé).
+        // de DEUX dimensions — la largeur de cellule et la hauteur de SON BLOC (sa ligne). Le bloc
+        // est déjà calculé pour tenir dans la ligne, donc le QR ne déborde ni de l'étiquette ni sur
+        // la ligne suivante. (On NE le borne PAS à toute la place restante jusqu'au bas : sinon il
+        // écraserait les lignes situées après lui, comme la référence sous le code.)
         let topPx = Int(Double(topLayout) * sy)
         let cellWidthPx = Int(Double(cellWidthLayout) * sx)
         let blockHeightPx = max(1, Int(Double(blockHeightLayout) * sy))
-        let remainingHeightPx = max(1, height - topPx)
-        let available = min(cellWidthPx, blockHeightPx, remainingHeightPx)
+        let available = min(cellWidthPx, blockHeightPx)
         let modulePx = max(1, available / n)
         let qrPx = modulePx * n
 
