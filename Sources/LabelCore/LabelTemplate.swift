@@ -75,6 +75,8 @@ public struct LabelTemplate: Codable, Equatable, Identifiable, Hashable {
                 hasher.combine(cell.suffix)
                 hasher.combine(cell.placeholder)
                 hasher.combine(cell.codeRendering)
+                hasher.combine(cell.symbology)
+                hasher.combine(cell.codeOptions)
             }
         }
         return hasher.finalize()
@@ -157,13 +159,84 @@ public struct TemplateLine: Codable, Equatable, Identifiable, Hashable {
 /// linéaires, ou QR code. Le QR encode la valeur de la cellule et se redimensionne pour tenir
 /// dans sa cellule, comme les barres.
 public enum CodeRendering: String, Codable, CaseIterable, Hashable {
-    case barcode   // code-barres EAN-13 linéaire (historique)
+    case barcode   // code-barres linéaire (symbologie : voir BarcodeSymbology)
     case qr        // QR code (CoreImage)
     public var title: String {
         switch self {
         case .barcode: NSLocalizedString("Code-barres", comment: "Code rendering")
         case .qr: NSLocalizedString("QR", comment: "Code rendering")
         }
+    }
+}
+
+/// Symbologie d'un code-barres LINÉAIRE (mode `CodeRendering.barcode`). EAN-13 reste le défaut
+/// historique. Les familles EAN/UPC n'encodent que des chiffres et portent une checksum ; Code 128
+/// et Code 39 encodent de l'alphanumérique. Une valeur non encodable dans la symbologie choisie
+/// bascule proprement en QR au rendu (repli), comme un code libre non-EAN le faisait déjà.
+public enum BarcodeSymbology: String, Codable, CaseIterable, Hashable {
+    case ean13     // 12 ou 13 chiffres, checksum (historique)
+    case ean8      // 7 ou 8 chiffres, checksum
+    case upca      // 11 ou 12 chiffres, checksum (EAN-13 à préfixe 0, convention US)
+    case code128   // alphanumérique, compact (CoreImage)
+    case code39    // alphanumérique, historique industriel
+
+    public var title: String {
+        switch self {
+        case .ean13: NSLocalizedString("EAN-13", comment: "Barcode symbology")
+        case .ean8: NSLocalizedString("EAN-8", comment: "Barcode symbology")
+        case .upca: NSLocalizedString("UPC-A", comment: "Barcode symbology")
+        case .code128: NSLocalizedString("Code 128", comment: "Barcode symbology")
+        case .code39: NSLocalizedString("Code 39", comment: "Barcode symbology")
+        }
+    }
+
+    /// Vrai pour les symbologies de la famille EAN/UPC : chiffres uniquement, checksum, chiffres
+    /// lisibles découpés en groupes sous les barres, gardes allongées, et options `CodeOptions`
+    /// pertinentes (chevron, 1er chiffre déporté).
+    public var isEANFamily: Bool {
+        switch self {
+        case .ean13, .ean8, .upca: return true
+        case .code128, .code39: return false
+        }
+    }
+}
+
+/// Options d'apparence d'un code-barres linéaire (surtout EAN/UPC). Les défauts reproduisent le
+/// rendu d'une étiquette EBP : chevron de marge `>`, 1er chiffre déporté à gauche, chiffres SOUS
+/// les barres (un code-barres a toujours son texte dessous — il n'y a pas d'option « au-dessus »).
+/// Les options non pertinentes pour une symbologie donnée sont ignorées (ex. le 1er chiffre déporté
+/// n'a de sens que pour EAN-13/UPC-A).
+public struct CodeOptions: Codable, Equatable, Hashable {
+    /// Affiche les chiffres lisibles sous les barres. false = code-barres nu.
+    public var showText: Bool
+    /// Affiche le chevron `>` (light margin indicator) après la garde de fin (EAN/UPC).
+    public var showChevron: Bool
+    /// Affiche le 1er chiffre déporté à gauche, hors de la zone de barres (EAN-13/UPC-A).
+    public var showFirstDigit: Bool
+    /// Fait déborder le code sur TOUTE la largeur de l'étiquette, même quand la ligne est en deux
+    /// colonnes : le code gagne en largeur (donc en modules px, donc en fiabilité de lecture).
+    /// Utile pour les codes longs (Code 128 / Code 39) à l'étroit dans une demi-colonne.
+    public var fullWidth: Bool
+
+    public init(showText: Bool = true, showChevron: Bool = true, showFirstDigit: Bool = true,
+                fullWidth: Bool = false) {
+        self.showText = showText
+        self.showChevron = showChevron
+        self.showFirstDigit = showFirstDigit
+        self.fullWidth = fullWidth
+    }
+
+    /// Défaut « étiquette EBP » (toutes options actives).
+    public static let ebp = CodeOptions()
+
+    private enum CodingKeys: String, CodingKey { case showText, showChevron, showFirstDigit, fullWidth }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        showText = try values.decodeIfPresent(Bool.self, forKey: .showText) ?? true
+        showChevron = try values.decodeIfPresent(Bool.self, forKey: .showChevron) ?? true
+        showFirstDigit = try values.decodeIfPresent(Bool.self, forKey: .showFirstDigit) ?? true
+        fullWidth = try values.decodeIfPresent(Bool.self, forKey: .fullWidth) ?? false
     }
 }
 
@@ -182,10 +255,16 @@ public struct TemplateCell: Codable, Equatable, Identifiable, Hashable {
     public var placeholder: String
     /// Mode de rendu quand le contenu est un code (code-barres par défaut) : linéaire ou QR.
     public var codeRendering: CodeRendering
+    /// Symbologie du code-barres linéaire (EAN-13 par défaut). Ignorée en mode QR.
+    public var symbology: BarcodeSymbology
+    /// Options d'apparence du code-barres linéaire (chevron, 1er chiffre, position des chiffres).
+    public var codeOptions: CodeOptions
 
     public init(id: UUID = UUID(), content: CellContent, style: CellStyle = CellStyle(),
                 prefix: String = "", suffix: String = "", placeholder: String = "",
-                codeRendering: CodeRendering = .barcode) {
+                codeRendering: CodeRendering = .barcode,
+                symbology: BarcodeSymbology = .ean13,
+                codeOptions: CodeOptions = .ebp) {
         self.id = id
         self.content = content
         self.style = style
@@ -193,9 +272,13 @@ public struct TemplateCell: Codable, Equatable, Identifiable, Hashable {
         self.suffix = suffix
         self.placeholder = placeholder
         self.codeRendering = codeRendering
+        self.symbology = symbology
+        self.codeOptions = codeOptions
     }
 
-    private enum CodingKeys: String, CodingKey { case id, content, style, prefix, suffix, placeholder, codeRendering }
+    private enum CodingKeys: String, CodingKey {
+        case id, content, style, prefix, suffix, placeholder, codeRendering, symbology, codeOptions
+    }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -206,6 +289,8 @@ public struct TemplateCell: Codable, Equatable, Identifiable, Hashable {
         suffix = try values.decodeIfPresent(String.self, forKey: .suffix) ?? ""
         placeholder = try values.decodeIfPresent(String.self, forKey: .placeholder) ?? ""
         codeRendering = try values.decodeIfPresent(CodeRendering.self, forKey: .codeRendering) ?? .barcode
+        symbology = try values.decodeIfPresent(BarcodeSymbology.self, forKey: .symbology) ?? .ean13
+        codeOptions = try values.decodeIfPresent(CodeOptions.self, forKey: .codeOptions) ?? .ebp
     }
 
     /// Vrai si cette cellule doit être rendue en QR code (contenu de type code + mode QR).
@@ -453,6 +538,16 @@ public struct CellStyle: Codable, Equatable, Hashable {
         public var bandHeight: Int {
             switch self {
             case .xxs: 8; case .xs: 13; case .s: 20; case .m: 27; case .l: 36; case .xl: 48
+            }
+        }
+        /// Hauteur de bande d'une cellule CODE (barres ou QR) pour cette taille. Contrairement au
+        /// texte, la taille d'un code pilote sa DIMENSION : plus la taille est grande, plus le code
+        /// est haut (barres plus hautes = visée plus facile à la douchette ; QR plus grand). La
+        /// largeur d'un code linéaire reste bornée par la cellule, donc la hauteur est le levier de
+        /// confort de lecture que la taille contrôle ici.
+        public var codeBandHeight: Int {
+            switch self {
+            case .xxs: 40; case .xs: 48; case .s: 56; case .m: 64; case .l: 84; case .xl: 108
             }
         }
     }

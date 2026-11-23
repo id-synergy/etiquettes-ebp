@@ -91,8 +91,17 @@ struct ContentView: View {
                       fitted.width, fitted.height, setup.brotherModel.title)
     }
 
+    /// Support à longueur libre (rouleau continu) : la longueur imprimable est indéfinie. Alors la
+    /// hauteur de l'étiquette suit le contenu. Les imprimantes non-Brother (Netum, 5890) sont des
+    /// rouleaux de ticket continus.
+    private var isContinuousMedia: Bool {
+        guard isBrother else { return true }
+        return setup.brotherMedia.printableAreaMM(for: setup.brotherModel).length == nil
+    }
+
     private var bitmap: MonochromeBitmap? {
-        try? LabelRenderer.render(dated(label), template: currentTemplate, size: labelSize, layoutWidth: layoutWidth)
+        try? LabelRenderer.render(dated(label), template: currentTemplate, size: labelSize,
+                                  layoutWidth: layoutWidth, continuousMedia: isContinuousMedia)
     }
     /// Date d'exemple FIXE pour les aperçus/miniatures (clés de cache stables) : les modèles
     /// qui affichent la date de génération la montrent sans dériver à chaque rendu.
@@ -221,7 +230,8 @@ struct ContentView: View {
             presentationCard: { VStack(spacing: 18) { templateCard; presentationCard } },
             preview: { product in
                 (try? LabelRenderer.render(dated(product.label), template: currentTemplate,
-                                           size: labelSize, layoutWidth: layoutWidth))
+                                           size: labelSize, layoutWidth: layoutWidth,
+                                           continuousMedia: isContinuousMedia))
                     .flatMap(LabelRenderer.preview)
             },
             canPrint: canPrintBatch && !isPrinting,
@@ -349,8 +359,10 @@ struct ContentView: View {
             return .success
         } else {
             // 5890 : feu-et-oublie, pas de signal d'erreur dur. On envoie et on attend la fin.
+            // Rouleau ticket continu : la hauteur suit le contenu.
             do {
-                let bitmap = try LabelRenderer.render(dated(label), template: currentTemplate, size: labelSize)
+                let bitmap = try LabelRenderer.render(dated(label), template: currentTemplate,
+                                                      size: labelSize, continuousMedia: true)
                 printer.print(bitmap)
             } catch { return .failure(error.localizedDescription) }
             await waitWhile { printer.printing }
@@ -477,7 +489,9 @@ struct ContentView: View {
 
     /// Aperçu live de l'étiquette (le bitmap réel qui sera imprimé), rendu depuis l'étiquette donnée.
     private func previewCard(for previewLabel: ProductLabel) -> some View {
-        let preview = (try? LabelRenderer.render(dated(previewLabel), template: currentTemplate, size: labelSize, layoutWidth: layoutWidth))
+        let preview = (try? LabelRenderer.render(dated(previewLabel), template: currentTemplate,
+                                                 size: labelSize, layoutWidth: layoutWidth,
+                                                 continuousMedia: isContinuousMedia))
         return VStack(alignment: .leading, spacing: 8) {
             Text("APERÇU DE L’ÉTIQUETTE").font(.headline)
             if let preview, let image = LabelRenderer.preview(preview) {
@@ -583,17 +597,23 @@ struct ContentView: View {
     private func submit(_ label: ProductLabel, size: LabelSize, template: LabelTemplate,
                         onQueued: (() -> Void)? = nil) throws {
         let label = dated(label)
+        let continuous = isContinuousMedia
         if isNetum {
-            var bitmap = try LabelRenderer.render(label, template: template, size: size, layoutWidth: layoutWidth)
+            // Rouleau ticket continu : la hauteur suit le contenu.
+            var bitmap = try LabelRenderer.render(label, template: template, size: size,
+                                                  layoutWidth: layoutWidth, continuousMedia: true)
             if setup.netum.rotateContent180 { bitmap = try bitmap.rotated180() }
             netum.print(bitmap: bitmap.bytes, width: bitmap.width, height: bitmap.height,
                         options: setup.netum, onQueued: onQueued)
         } else if isBrother {
             brother.print(job: setup.brotherJob, layoutHeight: size.heightDots, render: { scale in
-                try LabelRenderer.grayImage(LabelRenderer.render(label, template: template, size: size, scale: scale))
+                try LabelRenderer.grayImage(LabelRenderer.render(label, template: template, size: size,
+                                                                 scale: scale, continuousMedia: continuous))
             }, onSuccess: onQueued)
         } else {
-            printer.print(try LabelRenderer.render(label, template: template, size: size), onQueued: onQueued)
+            // Imprimante ticket basique (5890) : rouleau continu.
+            printer.print(try LabelRenderer.render(label, template: template, size: size,
+                                                   continuousMedia: true), onQueued: onQueued)
         }
     }
 

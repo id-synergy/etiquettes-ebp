@@ -67,6 +67,15 @@
 		FA0000000000000000000004 /* LabelTemplateListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000014 /* LabelTemplateListView.swift */; };
 		FA0000000000000000000005 /* LabelTemplateEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000015 /* LabelTemplateEditorView.swift */; };
 		FA0000000000000000000006 /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000016 /* QRCode.swift */; };
+		FABC000000000000000000A1 /* EAN8.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B1 /* EAN8.swift */; };
+		FABC000000000000000000A2 /* UPCA.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B2 /* UPCA.swift */; };
+		FABC000000000000000000A3 /* Code39.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B3 /* Code39.swift */; };
+		FABC000000000000000000A4 /* Code128.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B4 /* Code128.swift */; };
+		FABC000000000000000000A5 /* BarcodeScannability.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B5 /* BarcodeScannability.swift */; };
+		FABC000000000000000000A6 /* BarcodeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B6 /* BarcodeGenerator.swift */; };
+		FABC000000000000000000A7 /* EANBarcodeGenerators.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B7 /* EANBarcodeGenerators.swift */; };
+		FABC000000000000000000A8 /* Code128Generator.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B8 /* Code128Generator.swift */; };
+		FABC000000000000000000A9 /* BarcodeFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABC000000000000000000B9 /* BarcodeFactory.swift */; };
 		FA0000000000000000000007 /* SharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000017 /* SharePayload.swift */; };
 		FA0000000000000000000031 /* QRPagination.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000041 /* QRPagination.swift */; };
 		FA0000000000000000000008 /* ShareTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0000000000000000000018 /* ShareTransport.swift */; };
@@ -164,6 +173,15 @@
 		FA0000000000000000000014 /* LabelTemplateListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelTemplateListView.swift; sourceTree = "<group>"; };
 		FA0000000000000000000015 /* LabelTemplateEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelTemplateEditorView.swift; sourceTree = "<group>"; };
 		FA0000000000000000000016 /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B1 /* EAN8.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EAN8.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B2 /* UPCA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UPCA.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B3 /* Code39.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code39.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B4 /* Code128.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code128.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B5 /* BarcodeScannability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannability.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B6 /* BarcodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Barcodes/BarcodeGenerator.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B7 /* EANBarcodeGenerators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Barcodes/EANBarcodeGenerators.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B8 /* Code128Generator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Barcodes/Code128Generator.swift; sourceTree = "<group>"; };
+		FABC000000000000000000B9 /* BarcodeFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Barcodes/BarcodeFactory.swift; sourceTree = "<group>"; };
 		FA0000000000000000000017 /* SharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharePayload.swift; sourceTree = "<group>"; };
 		FA0000000000000000000041 /* QRPagination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPagination.swift; sourceTree = "<group>"; };
 		FA0000000000000000000018 /* ShareTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareTransport.swift; sourceTree = "<group>"; };
@@ -283,6 +301,15 @@
 				FA0000000000000000000012 /* LabelTemplateLibrary.swift */,
 				EB0000000000000000000074 /* PrintQueue.swift */,
 				516D0672BE4E8CAD47F01920 /* EAN13.swift */,
+				FABC000000000000000000B1 /* EAN8.swift */,
+				FABC000000000000000000B2 /* UPCA.swift */,
+				FABC000000000000000000B3 /* Code39.swift */,
+				FABC000000000000000000B4 /* Code128.swift */,
+				FABC000000000000000000B5 /* BarcodeScannability.swift */,
+				FABC000000000000000000B6 /* BarcodeGenerator.swift */,
+				FABC000000000000000000B7 /* EANBarcodeGenerators.swift */,
+				FABC000000000000000000B8 /* Code128Generator.swift */,
+				FABC000000000000000000B9 /* BarcodeFactory.swift */,
 				FA0000000000000000000044 /* AppVersion.swift */,
 				BF4BFF6F608F2EA69D91E634 /* ThermalBitmapRotation.swift */,
 				A6B254F9702B497C9A0E8C52 /* LabelPresentation.swift */,
@@ -504,6 +531,15 @@
 				CC0000000000000000000017 /* WideLabelLayout.swift in Sources */,
 				FA0000000000000000000001 /* LabelTemplate.swift in Sources */,
 				FA0000000000000000000006 /* QRCode.swift in Sources */,
+				FABC000000000000000000A1 /* EAN8.swift in Sources */,
+				FABC000000000000000000A2 /* UPCA.swift in Sources */,
+				FABC000000000000000000A3 /* Code39.swift in Sources */,
+				FABC000000000000000000A4 /* Code128.swift in Sources */,
+				FABC000000000000000000A5 /* BarcodeScannability.swift in Sources */,
+				FABC000000000000000000A6 /* BarcodeGenerator.swift in Sources */,
+				FABC000000000000000000A7 /* EANBarcodeGenerators.swift in Sources */,
+				FABC000000000000000000A8 /* Code128Generator.swift in Sources */,
+				FABC000000000000000000A9 /* BarcodeFactory.swift in Sources */,
 				FA0000000000000000000002 /* LabelTemplateLibrary.swift in Sources */,
 				FA0000000000000000000003 /* LabelTemplateStore.swift in Sources */,
 				FA0000000000000000000004 /* LabelTemplateListView.swift in Sources */,

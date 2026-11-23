@@ -142,7 +142,10 @@ struct LabelTemplateEditorView: View {
         // de rendre : le rendu est court, et céder ouvrait une fenêtre où une relance annulait la
         // tâche juste après avoir remis l'aperçu à nil, le laissant vide sur un spinner.
         .task(id: liveKey) {
-            let bitmap = try? LabelRenderer.render(sampleLabel, template: draft, size: size, layoutWidth: layoutWidth)
+            // Aperçu d'édition en mode continu (hauteur = contenu) : on édite le contenu, pas le
+            // calage sur une étiquette physique ; c'est la vue la plus lisible pour composer.
+            let bitmap = try? LabelRenderer.render(sampleLabel, template: draft, size: size,
+                                                   layoutWidth: layoutWidth, continuousMedia: true)
             if let image = bitmap.flatMap(LabelRenderer.preview) {
                 liveImage = image; liveFailed = false
             } else {
@@ -265,7 +268,7 @@ struct LabelTemplateEditorView: View {
                         dateFormatSection(cellBinding)
                     }
                     if cellBinding.wrappedValue.content.isBarcode {
-                        codeRenderingSection(cellBinding)
+                        codeRenderingSection(cellBinding, lineLayout: draft.lines[li].layout)
                     }
                     if decorationsApply(to: cellBinding.wrappedValue) {
                         decorationsSection(cellBinding)
@@ -312,25 +315,137 @@ struct LabelTemplateEditorView: View {
     /// Segment « Code-barres / QR » affiché pour toute cellule de type code (code-barres article
     /// ET code libre). L'aide s'adapte à la source de la valeur encodée.
     @ViewBuilder
-    private func codeRenderingSection(_ cell: Binding<TemplateCell>) -> some View {
+    private func codeRenderingSection(_ cell: Binding<TemplateCell>, lineLayout: TemplateLine.Layout) -> some View {
         let isFree = { if case .codeLibre = cell.wrappedValue.content { return true }; return false }()
+        let isBarcode = cell.wrappedValue.codeRendering == .barcode
         Section(NSLocalizedString("Type de rendu", comment: "Code rendering section")) {
             Picker(NSLocalizedString("Type", comment: "Code rendering type"), selection: cell.codeRendering) {
                 ForEach(CodeRendering.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
             }
             .pickerStyle(.segmented)
-            Text(codeRenderingHint(qr: cell.wrappedValue.codeRendering == .qr, free: isFree))
+            // En mode barres : choix de la symbologie (EAN-13 par défaut). Les formats qui ne
+            // peuvent pas encoder la valeur de l'article sont indiqués comme tels.
+            if isBarcode {
+                let value = barcodeValue(for: cell.wrappedValue)
+                let encodable = BarcodeFactory.symbologiesEncodable(value)
+                Picker(NSLocalizedString("Format", comment: "Barcode symbology"), selection: cell.symbology) {
+                    ForEach(BarcodeSymbology.allCases, id: \.self) { sym in
+                        if encodable.contains(sym) {
+                            Text(sym.title).tag(sym)
+                        } else {
+                            Text(String(format: NSLocalizedString("%@ (incompatible)", comment: "Incompatible symbology"), sym.title)).tag(sym)
+                        }
+                    }
+                }
+                // Avertit si le format choisi ne convient pas à la valeur (sinon repli en QR).
+                if !encodable.contains(cell.wrappedValue.symbology) {
+                    Label(String(format: NSLocalizedString("« %@ » n’est pas encodable en %@ : un QR sera imprimé à la place. Choisissez un format compatible.", comment: "Symbology mismatch"), value, cell.wrappedValue.symbology.title),
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
+            Text(codeRenderingHint(qr: cell.wrappedValue.codeRendering == .qr, free: isFree,
+                                   symbology: cell.wrappedValue.symbology))
                 .font(.caption).foregroundStyle(.secondary)
+            // Alerte de scannabilité : si la cellule est trop étroite pour un module fiable.
+            if isBarcode {
+                scannabilityWarning(for: cell.wrappedValue, lineLayout: lineLayout)
+            }
+        }
+        // Options d'apparence du code-barres linéaire.
+        if isBarcode {
+            codeOptionsSection(cell)
         }
     }
 
-    private func codeRenderingHint(qr: Bool, free: Bool) -> String {
-        switch (qr, free) {
-        case (false, false): return NSLocalizedString("Code-barres EAN-13 de l’article, chiffres sous les barres.", comment: "Barcode hint article")
-        case (true, false): return NSLocalizedString("QR code encodant le code-barres (EAN) de l’article, redimensionné dans la cellule.", comment: "QR hint article")
-        case (false, true): return NSLocalizedString("Code-barres EAN-13 de la valeur saisie (si elle forme un EAN valide, sinon QR).", comment: "Barcode hint free")
-        case (true, true): return NSLocalizedString("QR code encodant la valeur saisie, redimensionné dans la cellule.", comment: "QR hint free")
+    /// Valeur que la cellule encodera réellement : la valeur saisie (code libre) ou l'EAN de
+    /// l'article d'exemple (code-barres article). Sert à savoir quels formats sont compatibles.
+    private func barcodeValue(for cell: TemplateCell) -> String {
+        let payload = cell.codePayload(for: sampleLabel) ?? ""
+        return payload.isEmpty ? sampleLabel.ean : payload
+    }
+
+    /// Largeur de cellule en pixels d'impression (base 5890, scale = 1 : 1 pt layout = 1 px).
+    /// Réplique `computeLineRows` du renderer : l'option « pleine largeur » occupe toute la largeur
+    /// de l'étiquette même en deux colonnes ; sinon la largeur dépend du nombre de colonnes.
+    private func cellWidthPx(lineLayout: TemplateLine.Layout, fullWidth: Bool) -> Int {
+        let margin = 12
+        let layoutWidth = LabelRasterGeometry.layoutWidth
+        if fullWidth { return layoutWidth - 2 * margin }
+        switch lineLayout {
+        case .twoColumns: return (layoutWidth - 2 * margin) / 2 - 6
+        case .full: return layoutWidth - 2 * margin
         }
+    }
+
+    /// Hauteur de barres approximative en pixels (base 5890) pour une taille donnée. Le bloc code
+    /// occupe ~66 % de la bande de code de la taille. Sert à alerter sur une hauteur trop faible.
+    private func approxBarsHeightPx(size: CellStyle.Size) -> Int { Int(Double(size.codeBandHeight) * 0.66) }
+
+    /// Avertit, le cas échéant, que le code-barres risque de mal se scanner dans cette cellule.
+    /// Prend en compte l'option « pleine largeur » (plus de largeur disponible) et la taille
+    /// (hauteur des barres).
+    @ViewBuilder
+    private func scannabilityWarning(for cell: TemplateCell, lineLayout: TemplateLine.Layout) -> some View {
+        let assessment = BarcodeScannability.assess(
+            cellWidthPx: cellWidthPx(lineLayout: lineLayout, fullWidth: cell.codeOptions.fullWidth),
+            barsHeightPx: approxBarsHeightPx(size: cell.style.size),
+            symbology: cell.symbology)
+        switch assessment.level {
+        case .reliable:
+            EmptyView()
+        case .risky:
+            Label(cell.codeOptions.fullWidth
+                  ? NSLocalizedString("Code-barres dense : lecture possible mais peu fiable. Choisissez un format plus court (EAN-13) ou agrandissez l’étiquette.", comment: "Scannability risky full-width")
+                  : NSLocalizedString("Code-barres petit : lecture possible mais peu fiable. Activez « Code sur toute la largeur » ou passez la ligne en pleine largeur.", comment: "Scannability risky"),
+                  systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange)
+        case .unreadable:
+            Label(NSLocalizedString("Cellule trop étroite pour ce code-barres : il ne sera pas lisible. Activez « Code sur toute la largeur » ou utilisez un QR.", comment: "Scannability unreadable"),
+                  systemImage: "xmark.octagon.fill")
+                .font(.caption).foregroundStyle(.red)
+        }
+    }
+
+    /// Panneau d'options du code-barres linéaire : affichage des chiffres (toujours SOUS les barres) ;
+    /// chevron de marge et 1er chiffre déporté réservés à la famille EAN/UPC.
+    @ViewBuilder
+    private func codeOptionsSection(_ cell: Binding<TemplateCell>) -> some View {
+        let sym = cell.wrappedValue.symbology
+        let showText = cell.wrappedValue.codeOptions.showText
+        Section {
+            Toggle(NSLocalizedString("Code sur toute la largeur", comment: "Full-width code toggle"),
+                   isOn: cell.codeOptions.fullWidth)
+            Toggle(NSLocalizedString("Afficher les chiffres", comment: "Show human-readable text"),
+                   isOn: cell.codeOptions.showText)
+            if showText && sym.isEANFamily {
+                Toggle(NSLocalizedString("Chevron de marge « > »", comment: "Chevron toggle"),
+                       isOn: cell.codeOptions.showChevron)
+                if sym == .ean13 || sym == .upca {
+                    Toggle(NSLocalizedString("1er chiffre déporté", comment: "First digit toggle"),
+                           isOn: cell.codeOptions.showFirstDigit)
+                }
+            }
+        } header: {
+            Text(NSLocalizedString("Apparence du code-barres", comment: "Barcode options section"))
+        } footer: {
+            Text(sym.isEANFamily
+                 ? NSLocalizedString("Reproduit la mise en forme d’une étiquette EBP : chiffres sous les barres, chevron de marge, 1er chiffre à gauche.", comment: "Barcode options footer EAN")
+                 : NSLocalizedString("Code 128 et Code 39 affichent la valeur brute sous les barres.", comment: "Barcode options footer linear"))
+        }
+    }
+
+    private func codeRenderingHint(qr: Bool, free: Bool, symbology: BarcodeSymbology) -> String {
+        if qr {
+            return free
+                ? NSLocalizedString("QR code encodant la valeur saisie, redimensionné dans la cellule.", comment: "QR hint free")
+                : NSLocalizedString("QR code encodant le code-barres (EAN) de l’article, redimensionné dans la cellule.", comment: "QR hint article")
+        }
+        let source = free
+            ? NSLocalizedString("de la valeur saisie", comment: "Barcode hint source free")
+            : NSLocalizedString("de l’article", comment: "Barcode hint source article")
+        let fallback = NSLocalizedString(" Repli en QR si la valeur n’est pas encodable dans ce format.", comment: "Barcode hint fallback")
+        return String(format: NSLocalizedString("Code-barres %@ %@.", comment: "Barcode hint"), symbology.title, source) + fallback
     }
 
     @ViewBuilder
