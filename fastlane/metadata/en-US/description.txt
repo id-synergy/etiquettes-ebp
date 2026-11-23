@@ -1,0 +1,27 @@
+EBP Store Labels connects your iPhone to your EBP software to print price labels in store, quickly and without typing errors.
+
+LIVE EBP CATALOG
+• Access all your EBP items from your phone
+• Search by name or reference
+• Filters: family, sub-family, price, availability, active items
+• Sort by reference, name or price
+
+COMPLETE ITEM SHEET
+• Retail, net price and VAT
+• Actual and available stock
+• Aisle, family, supplier, logistics
+• EAN-13 barcode
+
+BLUETOOTH PRINTING
+• Pocket 5890, Brother and NETUM thermal printers
+• Label preview before printing
+• Choose format and quantity
+• No Internet connection needed to print
+
+FAST SCAN
+• Scan a barcode to instantly find the item
+
+DEMO MODE
+• Try the app with sample data, no account or connection required
+
+The app works with the EBP gateway. Simple, secure connection via QR code.

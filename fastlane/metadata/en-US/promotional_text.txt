@@ -1,0 +1,1 @@
+Print price labels from your EBP catalog, straight to a Bluetooth printer. Scan, filters, preview before printing.

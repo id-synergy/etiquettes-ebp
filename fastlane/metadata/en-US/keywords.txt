@@ -1,0 +1,1 @@
+EBP,label,price,store,barcode,printer,bluetooth,stock,inventory,scan,thermal
