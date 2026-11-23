@@ -99,9 +99,20 @@ struct ContentView: View {
         return setup.brotherMedia.printableAreaMM(for: setup.brotherModel).length == nil
     }
 
+    /// En prédécoupé : hauteur de mise en page au RATIO de l'étiquette physique, pour composer le
+    /// contenu à sa forme réelle et le faire tenir dedans (jamais coupé). nil en continu.
+    private var fixedLayoutHeight: Int? {
+        guard isBrother else { return nil }
+        let area = setup.brotherMedia.printableAreaMM(for: setup.brotherModel)
+        guard let length = area.length else { return nil }
+        return LabelRenderer.fixedLayoutHeight(forLabelWidthMM: area.width, lengthMM: length,
+                                               layoutWidth: layoutWidth)
+    }
+
     private var bitmap: MonochromeBitmap? {
         try? LabelRenderer.render(dated(label), template: currentTemplate, size: labelSize,
-                                  layoutWidth: layoutWidth, continuousMedia: isContinuousMedia)
+                                  layoutWidth: layoutWidth, continuousMedia: isContinuousMedia,
+                                  fixedLayoutHeight: fixedLayoutHeight)
     }
     /// Date d'exemple FIXE pour les aperçus/miniatures (clés de cache stables) : les modèles
     /// qui affichent la date de génération la montrent sans dériver à chaque rendu.
@@ -231,7 +242,8 @@ struct ContentView: View {
             preview: { product in
                 (try? LabelRenderer.render(dated(product.label), template: currentTemplate,
                                            size: labelSize, layoutWidth: layoutWidth,
-                                           continuousMedia: isContinuousMedia))
+                                           continuousMedia: isContinuousMedia,
+                                           fixedLayoutHeight: fixedLayoutHeight))
                     .flatMap(LabelRenderer.preview)
             },
             canPrint: canPrintBatch && !isPrinting,
@@ -491,7 +503,8 @@ struct ContentView: View {
     private func previewCard(for previewLabel: ProductLabel) -> some View {
         let preview = (try? LabelRenderer.render(dated(previewLabel), template: currentTemplate,
                                                  size: labelSize, layoutWidth: layoutWidth,
-                                                 continuousMedia: isContinuousMedia))
+                                                 continuousMedia: isContinuousMedia,
+                                                 fixedLayoutHeight: fixedLayoutHeight))
         return VStack(alignment: .leading, spacing: 8) {
             Text("APERÇU DE L’ÉTIQUETTE").font(.headline)
             if let preview, let image = LabelRenderer.preview(preview) {
@@ -606,9 +619,13 @@ struct ContentView: View {
             netum.print(bitmap: bitmap.bytes, width: bitmap.width, height: bitmap.height,
                         options: setup.netum, onQueued: onQueued)
         } else if isBrother {
-            brother.print(job: setup.brotherJob, layoutHeight: size.heightDots, render: { scale in
+            let fixedH = fixedLayoutHeight
+            // En prédécoupé, la hauteur de page envoyée au SDK est celle de l'étiquette physique.
+            let brotherLayoutH = fixedH ?? size.heightDots
+            brother.print(job: setup.brotherJob, layoutHeight: brotherLayoutH, render: { scale in
                 try LabelRenderer.grayImage(LabelRenderer.render(label, template: template, size: size,
-                                                                 scale: scale, continuousMedia: continuous))
+                                                                 scale: scale, continuousMedia: continuous,
+                                                                 fixedLayoutHeight: fixedH))
             }, onSuccess: onQueued)
         } else {
             // Imprimante ticket basique (5890) : rouleau continu.

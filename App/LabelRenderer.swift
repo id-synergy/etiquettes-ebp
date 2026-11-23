@@ -15,7 +15,8 @@ enum LabelRenderer {
     /// arrangements figés (pensés pour une hauteur donnée).
     static func render(_ label: ProductLabel, template: LabelTemplate, size: LabelSize = .standard,
                        scale: Double = 1, layoutWidth: Int = width,
-                       continuousMedia: Bool = false) throws -> MonochromeBitmap {
+                       continuousMedia: Bool = false,
+                       fixedLayoutHeight: Int? = nil) throws -> MonochromeBitmap {
         if let arrangement = template.baseArrangement {
             return try render(label, size: size, arrangement: arrangement, scale: scale, layoutWidth: layoutWidth)
         }
@@ -26,7 +27,16 @@ enum LabelRenderer {
         let price = PriceFormatter.formatted(label.price, currency: label.currency) ?? ""
         return try renderLines(label, template: template, ean: ean, price: price,
                                size: size, scale: scale, layoutWidth: layoutWidth,
-                               continuousMedia: continuousMedia)
+                               continuousMedia: continuousMedia, fixedLayoutHeight: fixedLayoutHeight)
+    }
+
+    /// Hauteur de mise en page (points, base 384 de large) correspondant au RATIO d'une étiquette
+    /// prédécoupée de dimensions physiques données. Sert à composer le contenu à la forme réelle de
+    /// l'étiquette (sinon un modèle vertical déborderait d'une étiquette horizontale).
+    static func fixedLayoutHeight(forLabelWidthMM widthMM: Double, lengthMM: Double,
+                                  layoutWidth: Int = width) -> Int? {
+        guard widthMM > 0, lengthMM > 0 else { return nil }
+        return max(1, Int((Double(layoutWidth) * lengthMM / widthMM).rounded()))
     }
 
     /// `scale` dessine la même mise en page plus grande, pour une Brother :
@@ -120,14 +130,32 @@ enum LabelRenderer {
     /// comme le chemin historique ; les barres sont peintes sur la grille de pixels finale.
     private static func renderLines(_ label: ProductLabel, template: LabelTemplate, ean: String,
                                     price: String, size: LabelSize, scale: Double,
-                                    layoutWidth: Int, continuousMedia: Bool = false) throws -> MonochromeBitmap {
+                                    layoutWidth: Int, continuousMedia: Bool = false,
+                                    fixedLayoutHeight: Int? = nil) throws -> MonochromeBitmap {
         let isWide = layoutWidth == WideLabelLayout.width
         let layoutW = isWide ? WideLabelLayout.width : Self.width
-        // Le Format (size) règle la DENSITÉ. En support continu, la hauteur de l'étiquette suit le
-        // CONTENU (pas de hauteur imposée) ; en prédécoupé, elle reste celle de l'étiquette.
-        let (rows, contentHeight) = computeLineRows(template.lines, layoutWidth: layoutW,
+        // Le Format (size) règle la DENSITÉ. Trois cas pour la HAUTEUR de l'étiquette :
+        //  - continu : la hauteur suit le CONTENU (pas de limite) ;
+        //  - prédécoupé (fixedLayoutHeight) : la hauteur est celle de l'étiquette PHYSIQUE (son
+        //    ratio), et le contenu doit tenir dedans (sinon il serait coupé) ;
+        //  - sinon : la hauteur du Format choisi.
+        var (rows, contentHeight) = computeLineRows(template.lines, layoutWidth: layoutW,
                                                     densityHeight: size.heightDots)
-        let layoutH = continuousMedia ? max(1, contentHeight) : size.heightDots
+        let layoutH: Int
+        if continuousMedia {
+            layoutH = max(1, contentHeight)
+        } else if let fixed = fixedLayoutHeight {
+            // Prédécoupé : l'étiquette a une hauteur physique fixe. Si le contenu déborde, on réduit
+            // la densité pour qu'il TIENNE (jamais coupé) ; s'il rentre, on garde la densité.
+            layoutH = max(1, fixed)
+            if contentHeight > layoutH {
+                let shrunk = Int(Double(size.heightDots) * Double(layoutH) / Double(contentHeight))
+                (rows, contentHeight) = computeLineRows(template.lines, layoutWidth: layoutW,
+                                                        densityHeight: max(1, shrunk))
+            }
+        } else {
+            layoutH = size.heightDots
+        }
 
         // Résolution de chaque cellule code, indexée par id de cellule : mode effectif (barres ou
         // QR) et, pour les barres, les chiffres EAN complétés. Un code LIBRE en mode barres n'est
