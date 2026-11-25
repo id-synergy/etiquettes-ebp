@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Fiche d'un article EBP, en deux onglets au niveau de l'article :
 ///  - **Produit** : les infos récupérées (lecture seule), TTC en gros + HT en petit (écran only).
@@ -43,16 +44,17 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
     private var productTab: some View {
         Form {
             Section(NSLocalizedString("Produit", comment: "Product")) {
-                LabeledContent(NSLocalizedString("Libellé", comment: "Name"),
-                               value: label.name.isEmpty ? "—" : label.name)
+                copyableRow(NSLocalizedString("Libellé", comment: "Name"),
+                            value: label.name.isEmpty ? "—" : label.name,
+                            copyValue: label.name)
                 if !label.productReference.isEmpty {
-                    LabeledContent(NSLocalizedString("Référence", comment: "Reference"), value: label.productReference)
+                    copyableRow(NSLocalizedString("Référence", comment: "Reference"), value: label.productReference)
                 }
                 if !label.shelfReference.isEmpty {
-                    LabeledContent(NSLocalizedString("Rayon", comment: "Shelf"), value: label.shelfReference)
+                    copyableRow(NSLocalizedString("Rayon", comment: "Shelf"), value: label.shelfReference)
                 }
                 if !label.category.isEmpty {
-                    LabeledContent(NSLocalizedString("Famille", comment: "Family"), value: label.category)
+                    copyableRow(NSLocalizedString("Famille", comment: "Family"), value: label.category)
                 }
                 eanRow
             }
@@ -63,21 +65,25 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.primary)
                 } label: { Text("TTC").font(.body) }
+                .copyOnLongPress(label.price)
                 if let ht = product.priceExclVat {
                     LabeledContent {
                         Text("\(ht) \(label.currency.symbol)")
                             .font(.body.weight(.medium)).foregroundStyle(.primary)
                     } label: { Text("HT").font(.body) }
+                    .copyOnLongPress(ht)
                 }
                 if let vat = product.details.vatAmount {
                     LabeledContent {
                         Text("\(vat) \(label.currency.symbol)")
                             .font(.body.weight(.medium)).foregroundStyle(.primary)
                     } label: { Text(vatLabel).font(.body) }
+                    .copyOnLongPress(vat)
                 } else if let rate = product.details.vatRatePercent {
                     LabeledContent {
                         Text("\(rate) %").font(.body.weight(.medium)).foregroundStyle(.primary)
                     } label: { Text(NSLocalizedString("TVA", comment: "VAT")).font(.body) }
+                    .copyOnLongPress(rate)
                 }
             }
 
@@ -85,6 +91,15 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
             logisticsSection
             managementSection
         }
+    }
+
+    /// Ligne lecture seule dont la valeur se copie par appui long (menu contextuel iOS).
+    /// `copyValue` permet de copier une valeur différente de celle affichée (ex. libellé réel
+    /// plutôt que « — » quand il est vide) ; par défaut on copie la valeur affichée.
+    @ViewBuilder
+    private func copyableRow(_ title: String, value: String, copyValue: String? = nil) -> some View {
+        LabeledContent(title, value: value)
+            .copyOnLongPress(copyValue ?? value)
     }
 
     /// Libellé « TVA » avec le taux entre parenthèses quand il est connu (ex. « TVA (20 %) »).
@@ -101,10 +116,10 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
         if d.realStock != nil || d.virtualStock != nil {
             Section(NSLocalizedString("Stock", comment: "Stock")) {
                 if let real = d.realStock {
-                    LabeledContent(NSLocalizedString("Stock réel", comment: "Real stock"), value: real)
+                    copyableRow(NSLocalizedString("Stock réel", comment: "Real stock"), value: real)
                 }
                 if let virtual = d.virtualStock {
-                    LabeledContent(NSLocalizedString("Stock disponible", comment: "Available stock"), value: virtual)
+                    copyableRow(NSLocalizedString("Stock disponible", comment: "Available stock"), value: virtual)
                 }
             }
         }
@@ -116,13 +131,13 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
         if d.unitId != nil || d.weight != nil || d.volume != nil {
             Section(NSLocalizedString("Logistique", comment: "Logistics")) {
                 if let unit = d.unitId {
-                    LabeledContent(NSLocalizedString("Unité de vente", comment: "Sale unit"), value: unit)
+                    copyableRow(NSLocalizedString("Unité de vente", comment: "Sale unit"), value: unit)
                 }
                 if let weight = d.weight {
-                    LabeledContent(NSLocalizedString("Poids", comment: "Weight"), value: weight)
+                    copyableRow(NSLocalizedString("Poids", comment: "Weight"), value: weight)
                 }
                 if let volume = d.volume {
-                    LabeledContent(NSLocalizedString("Volume", comment: "Volume"), value: volume)
+                    copyableRow(NSLocalizedString("Volume", comment: "Volume"), value: volume)
                 }
             }
         }
@@ -134,10 +149,10 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
         if d.supplierId != nil || d.subFamilyId != nil || d.isActive != nil {
             Section(NSLocalizedString("Gestion", comment: "Management")) {
                 if let supplier = d.supplierId {
-                    LabeledContent(NSLocalizedString("Fournisseur", comment: "Supplier"), value: supplier)
+                    copyableRow(NSLocalizedString("Fournisseur", comment: "Supplier"), value: supplier)
                 }
                 if let subFamily = d.subFamilyId {
-                    LabeledContent(NSLocalizedString("Sous-famille", comment: "Sub-family"), value: subFamily)
+                    copyableRow(NSLocalizedString("Sous-famille", comment: "Sub-family"), value: subFamily)
                 }
                 if let active = d.isActive {
                     LabeledContent(NSLocalizedString("État", comment: "State")) {
@@ -166,6 +181,30 @@ struct ArticleDetailView<Impression: View, Sheets: View>: View {
                     }
                 }
             } label: { Text(NSLocalizedString("Code-barres", comment: "Barcode")) }
+            .copyOnLongPress(label.ean)
+        }
+    }
+}
+
+// MARK: - Copier par appui long
+
+private extension View {
+    /// Rend une ligne copiable par appui long : menu contextuel iOS avec « Copier »,
+    /// qui place `value` dans le presse-papiers et déclenche un retour haptique léger.
+    /// N'attache rien si `value` est vide (rien d'utile à copier).
+    @ViewBuilder
+    func copyOnLongPress(_ value: String) -> some View {
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self
+        } else {
+            self.contextMenu {
+                Button {
+                    UIPasteboard.general.string = value
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Label(NSLocalizedString("Copier", comment: "Copy value"), systemImage: "doc.on.doc")
+                }
+            }
         }
     }
 }
