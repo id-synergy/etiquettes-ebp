@@ -1,13 +1,11 @@
-This version greatly improves barcodes and how labels adapt.
+This update improves item search and the product sheet.
 
-Barcodes:
-- New per-cell formats: EAN-13, EAN-8, UPC-A, Code 128, Code 39 and QR.
-- Standards-compliant generation: your codes scan reliably at the checkout.
-- Digits are now aligned under the bars, like a real store label.
-- New "Full-width code" option for long codes, and size now controls the code's dimensions.
-- Warning when a code may be too small to scan, plus guidance to pick the right format.
+Search:
+- Search now covers barcode and reference, not just the item name.
+- A full barcode goes straight to the matching item instead of a long list.
+- New "Sale unit" filter and new sort by stock.
+- The Sort section is now at the top of the filters sheet, visible right away.
+- Smoother typing: the keyboard stays up and the search waits until you finish typing.
 
-Labels and printing:
-- Continuous roll: height follows the content, with no wasted space.
-- Die-cut label: all content scales to fit the label, nothing is cut off.
-- QR code is never truncated, and the text under the code stays visible.
+Product sheet:
+- Long-press any field (name, reference, barcode, price, stock…) to copy it in one gesture.

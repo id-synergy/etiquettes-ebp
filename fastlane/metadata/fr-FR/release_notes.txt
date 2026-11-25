@@ -1,13 +1,11 @@
-Cette version améliore en profondeur les codes-barres et l'adaptation aux étiquettes.
+Cette version améliore la recherche d'articles et la fiche produit.
 
-Codes-barres :
-- Nouveaux formats au choix, par cellule : EAN-13, EAN-8, UPC-A, Code 128, Code 39 et QR.
-- Génération conforme aux normes : vos codes sont lus correctement par les douchettes.
-- Les chiffres sont désormais calés sous les barres, comme sur une étiquette magasin.
-- Nouvelle option « Code sur toute la largeur » pour les codes longs, et la taille règle maintenant la dimension du code.
-- Alerte quand un code risque d'être trop petit pour être lu, et aide au choix du bon format.
+Recherche :
+- Recherche étendue au code-barres et à la référence, en plus du libellé.
+- Un code-barres complet affiche directement le bon article, au lieu d'une longue liste.
+- Nouveau filtre « Unité de vente » et nouveau tri par stock.
+- La section Tri est désormais en haut de la fenêtre des filtres, visible tout de suite.
+- La saisie est plus confortable : le clavier reste affiché et la recherche attend que vous ayez fini de taper.
 
-Étiquettes et impression :
-- Rouleau continu : la hauteur suit le contenu, sans espace inutile.
-- Étiquette prédécoupée : tout le contenu s'adapte pour tenir dans l'étiquette, plus rien n'est coupé.
-- QR code plus jamais tronqué, et texte sous le code toujours visible.
+Fiche produit :
+- Appui long sur une information (libellé, référence, code-barres, prix, stock…) pour la copier d'un geste.
