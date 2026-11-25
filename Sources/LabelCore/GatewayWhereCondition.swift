@@ -5,16 +5,34 @@ import Foundation
 /// EBP diffère, c'est le seul endroit à corriger (et un seul test à ajuster).
 ///
 /// Syntaxe utilisée (OData-like, telle que documentée côté EBP) :
-///   contains(Caption,'<texte>') or contains(Id,'<texte>')
+///   contains(Caption,'<mot>') or contains(Id,'<mot>') or contains(BarCode,'<mot>') or contains(DesComClear,'<mot>')
 public enum GatewayWhereCondition {
 
-    /// Condition de recherche libre sur le libellé (Caption) ou la référence (Id).
+    /// Champs interrogés par la recherche texte libre, dans l'ordre d'essai.
+    /// Caption = libellé, Id = référence, BarCode = code-barres (EAN), DesComClear = description.
+    private static let searchFields = ["Caption", "Id", "BarCode", "DesComClear"]
+
+    /// Condition de recherche libre sur le libellé, la référence, le code-barres et la description.
+    ///
+    /// Multi-termes : la saisie est découpée en mots ; CHAQUE mot doit apparaître dans au moins
+    /// un des champs (les mots sont combinés en « and », les champs en « or »). Ainsi « bosch 12 »
+    /// ne remonte que les articles dont un champ contient « bosch » ET un champ contient « 12 ».
     /// Retourne nil pour une saisie vide.
     public static func search(_ text: String) -> String? {
-        let term = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !term.isEmpty else { return nil }
-        let safe = escape(term)
-        return "contains(Caption,'\(safe)') or contains(Id,'\(safe)')"
+        let words = text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
+            .map { String($0) }
+            .filter { !$0.isEmpty }
+        guard !words.isEmpty else { return nil }
+
+        let perWord = words.map { word -> String in
+            let safe = escape(word)
+            let clauses = searchFields.map { "contains(\($0),'\(safe)')" }
+            return clauses.joined(separator: " or ")
+        }
+        // Un seul mot : on garde la condition « à plat » (pas de parenthèses superflues),
+        // pour rester compatible avec l'ancienne forme et lisible dans les logs.
+        if perWord.count == 1 { return perWord[0] }
+        return perWord.map { "(\($0))" }.joined(separator: " and ")
     }
 
     /// Filtre d'égalité sur la famille.

@@ -704,7 +704,7 @@ struct ProductListView<Impression: View, Sheets: View>: View {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                    TextField(NSLocalizedString("Rechercher (libellé ou référence)", comment: "Search"),
+                    TextField(NSLocalizedString("Rechercher (libellé, réf., code-barres…)", comment: "Search"),
                               text: $model.query)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()

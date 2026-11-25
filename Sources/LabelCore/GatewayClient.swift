@@ -23,7 +23,7 @@ public struct ItemsQuery: Equatable, Sendable {
     public var limit: Int          // ≤ 100
     public var orderBy: String     // requis pour la pagination
     public var orderDescending: Bool  // sens du tri
-    public var search: String?     // texte libre → WhereCondition (Caption/Id)
+    public var search: String?     // texte libre → WhereCondition (Caption/Id/BarCode/DesComClear, multi-mots)
     public var familyId: String?
     public var subFamilyId: String?
     public var priceMin: Decimal?  // filtre prix TTC ≥

@@ -234,11 +234,21 @@ final class GatewayTests: XCTestCase {
 
     func testWhereConditionSearch() {
         XCTAssertNil(GatewayWhereCondition.search("   "))
+        // Un seul mot : interroge les 4 champs (libellé, réf., code-barres, description) en « or ».
         XCTAssertEqual(GatewayWhereCondition.search("bosch"),
-                       "contains(Caption,'bosch') or contains(Id,'bosch')")
+                       "contains(Caption,'bosch') or contains(Id,'bosch') or contains(BarCode,'bosch') or contains(DesComClear,'bosch')")
         // Échappement des apostrophes.
         XCTAssertEqual(GatewayWhereCondition.search("l'outil"),
-                       "contains(Caption,'l''outil') or contains(Id,'l''outil')")
+                       "contains(Caption,'l''outil') or contains(Id,'l''outil') or contains(BarCode,'l''outil') or contains(DesComClear,'l''outil')")
+    }
+
+    func testWhereConditionSearchMultipleWords() {
+        // Multi-mots : chaque mot doit apparaître dans un champ (mots en « and », champs en « or »).
+        XCTAssertEqual(GatewayWhereCondition.search("bosch 12"),
+                       "(contains(Caption,'bosch') or contains(Id,'bosch') or contains(BarCode,'bosch') or contains(DesComClear,'bosch')) and (contains(Caption,'12') or contains(Id,'12') or contains(BarCode,'12') or contains(DesComClear,'12'))")
+        // Espaces multiples / en bordure : ignorés (pas de clause vide).
+        XCTAssertEqual(GatewayWhereCondition.search("  bosch   "),
+                       "contains(Caption,'bosch') or contains(Id,'bosch') or contains(BarCode,'bosch') or contains(DesComClear,'bosch')")
     }
 
     func testWhereConditionAnd() {
