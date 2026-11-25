@@ -23,9 +23,10 @@ public struct ItemsQuery: Equatable, Sendable {
     public var limit: Int          // ≤ 100
     public var orderBy: String     // requis pour la pagination
     public var orderDescending: Bool  // sens du tri
-    public var search: String?     // texte libre → WhereCondition (Caption/Id/BarCode/DesComClear, multi-mots)
+    public var search: String?     // texte libre → WhereCondition (Caption/Id, + BarCode eq si code-barres ; multi-mots)
     public var familyId: String?
     public var subFamilyId: String?
+    public var unitId: String?     // filtre unité de vente (UnitId EBP : 'UNIT', 'KG'…)
     public var priceMin: Decimal?  // filtre prix TTC ≥
     public var priceMax: Decimal?  // filtre prix TTC ≤
     public var activeOnly: Bool    // n'inclure que les articles actifs
@@ -34,7 +35,7 @@ public struct ItemsQuery: Equatable, Sendable {
 
     public init(offset: Int = 0, limit: Int = 50, orderBy: String = "Id", orderDescending: Bool = false,
                 search: String? = nil, familyId: String? = nil, subFamilyId: String? = nil,
-                priceMin: Decimal? = nil, priceMax: Decimal? = nil,
+                unitId: String? = nil, priceMin: Decimal? = nil, priceMax: Decimal? = nil,
                 activeOnly: Bool = false, inStockOnly: Bool = false, noCache: Bool = false) {
         self.offset = offset
         self.limit = min(max(limit, 1), 100)
@@ -43,6 +44,7 @@ public struct ItemsQuery: Equatable, Sendable {
         self.search = search
         self.familyId = familyId
         self.subFamilyId = subFamilyId
+        self.unitId = unitId
         self.priceMin = priceMin
         self.priceMax = priceMax
         self.activeOnly = activeOnly
@@ -111,6 +113,7 @@ public actor GatewayClient {
             query.search.flatMap(GatewayWhereCondition.search),
             query.familyId.flatMap(GatewayWhereCondition.family),
             query.subFamilyId.flatMap(GatewayWhereCondition.subFamily),
+            query.unitId.flatMap(GatewayWhereCondition.unit),
             query.priceMin.map(GatewayWhereCondition.priceAtLeast),
             query.priceMax.map(GatewayWhereCondition.priceAtMost),
             query.activeOnly ? GatewayWhereCondition.activeOnly() : nil,

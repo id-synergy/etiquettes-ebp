@@ -9,7 +9,7 @@ final class EBPSearchModel: ObservableObject {
 
     /// Critères de tri proposés à l'utilisateur.
     enum SortField: String, CaseIterable, Identifiable {
-        case reference, caption, price
+        case reference, caption, price, stock
         var id: String { rawValue }
         /// Champ EBP correspondant (OrderByValue).
         var ebpField: String {
@@ -17,6 +17,7 @@ final class EBPSearchModel: ObservableObject {
             case .reference: return "Id"
             case .caption: return "Caption"
             case .price: return "SalePriceVatIncluded"
+            case .stock: return "RealStock"
             }
         }
         var title: String {
@@ -24,13 +25,31 @@ final class EBPSearchModel: ObservableObject {
             case .reference: return NSLocalizedString("Référence", comment: "Sort by reference")
             case .caption: return NSLocalizedString("Libellé", comment: "Sort by caption")
             case .price: return NSLocalizedString("Prix", comment: "Sort by price")
+            case .stock: return NSLocalizedString("Stock", comment: "Sort by stock")
             }
         }
     }
 
+    /// Unités de vente proposées dans le filtre (code EBP → libellé lisible). Liste figée du
+    /// dossier SRM (table Unit EBP) : évite un appel réseau pour peupler le sélecteur.
+    static let unitOptions: [(id: String, label: String)] = [
+        ("UNIT", NSLocalizedString("Unité", comment: "Unit")),
+        ("BOIT", NSLocalizedString("Boîte", comment: "Box")),
+        ("CENT", NSLocalizedString("Le cent", comment: "Hundred")),
+        ("KG", "KG"),
+        ("LITR", NSLocalizedString("Litre", comment: "Liter")),
+        ("ML", "ML"),
+        ("M2", NSLocalizedString("Mètre carré", comment: "Square meter")),
+        ("PAIR", NSLocalizedString("La paire", comment: "Pair")),
+        ("VRAC", NSLocalizedString("Vrac", comment: "Bulk")),
+        ("HEUR", NSLocalizedString("Heures", comment: "Hours")),
+        ("JOUR", NSLocalizedString("Jours", comment: "Days")),
+    ]
+
     @Published var query = ""
     @Published var familyFilter = ""        // id de famille (ex. FAR00004), vide = toutes
     @Published var subFamilyFilter = ""     // id de sous-famille, vide = toutes
+    @Published var unitFilter = ""          // code unité de vente (ex. UNIT), vide = toutes
     @Published var priceMinText = ""        // prix TTC min (texte, vide = aucun)
     @Published var priceMaxText = ""        // prix TTC max
     @Published var onlyActive = false       // n'afficher que les articles actifs
@@ -44,6 +63,7 @@ final class EBPSearchModel: ObservableObject {
     var hasActiveFilters: Bool {
         !familyFilter.trimmingCharacters(in: .whitespaces).isEmpty
             || !subFamilyFilter.trimmingCharacters(in: .whitespaces).isEmpty
+            || !unitFilter.trimmingCharacters(in: .whitespaces).isEmpty
             || !priceMinText.trimmingCharacters(in: .whitespaces).isEmpty
             || !priceMaxText.trimmingCharacters(in: .whitespaces).isEmpty
             || onlyActive || onlyInStock
@@ -54,7 +74,7 @@ final class EBPSearchModel: ObservableObject {
     /// Remet les filtres à zéro. Ne recharge pas : l'appelant déclenche le rechargement
     /// (après fermeture de la feuille) via `reloadNow()`.
     func clearFilters() {
-        familyFilter = ""; subFamilyFilter = ""; priceMinText = ""; priceMaxText = ""
+        familyFilter = ""; subFamilyFilter = ""; unitFilter = ""; priceMinText = ""; priceMaxText = ""
         onlyActive = false; onlyInStock = false
         sortField = .reference; sortDescending = false
     }
@@ -64,6 +84,7 @@ final class EBPSearchModel: ObservableObject {
     var filtersSignature: String {
         [familyFilter.trimmingCharacters(in: .whitespaces),
          subFamilyFilter.trimmingCharacters(in: .whitespaces),
+         unitFilter.trimmingCharacters(in: .whitespaces),
          priceMinText.trimmingCharacters(in: .whitespaces),
          priceMaxText.trimmingCharacters(in: .whitespaces),
          onlyActive ? "1" : "0", onlyInStock ? "1" : "0",
@@ -74,11 +95,13 @@ final class EBPSearchModel: ObservableObject {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let family = familyFilter.trimmingCharacters(in: .whitespacesAndNewlines)
         let subFamily = subFamilyFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+        let unit = unitFilter.trimmingCharacters(in: .whitespacesAndNewlines)
         return ItemsQuery(offset: offset, limit: pageSize,
                           orderBy: sortField.ebpField, orderDescending: sortDescending,
                           search: term.isEmpty ? nil : term,
                           familyId: family.isEmpty ? nil : family,
                           subFamilyId: subFamily.isEmpty ? nil : subFamily,
+                          unitId: unit.isEmpty ? nil : unit,
                           priceMin: Self.decimal(priceMinText),
                           priceMax: Self.decimal(priceMaxText),
                           activeOnly: onlyActive, inStockOnly: onlyInStock)
@@ -526,6 +549,14 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     private var filtersSheet: some View {
         NavigationStack {
             Form {
+                Section(NSLocalizedString("Tri", comment: "Sort")) {
+                    Picker(NSLocalizedString("Trier par", comment: "Sort by"), selection: $model.sortField) {
+                        ForEach(EBPSearchModel.SortField.allCases) { field in
+                            Text(field.title).tag(field)
+                        }
+                    }
+                    Toggle(NSLocalizedString("Ordre décroissant", comment: "Descending"), isOn: $model.sortDescending)
+                }
                 Section(NSLocalizedString("Disponibilité", comment: "Availability")) {
                     Toggle(NSLocalizedString("En stock uniquement", comment: "In stock only"), isOn: $model.onlyInStock)
                     Toggle(NSLocalizedString("Articles actifs uniquement", comment: "Active only"), isOn: $model.onlyActive)
@@ -542,6 +573,14 @@ struct ProductListView<Impression: View, Sheets: View>: View {
                         .autocorrectionDisabled()
                         .focused($filterFieldFocused)
                 }
+                Section(NSLocalizedString("Unité de vente", comment: "Sale unit")) {
+                    Picker(NSLocalizedString("Unité", comment: "Unit"), selection: $model.unitFilter) {
+                        Text(NSLocalizedString("Toutes", comment: "All units")).tag("")
+                        ForEach(EBPSearchModel.unitOptions, id: \.id) { option in
+                            Text(option.label).tag(option.id)
+                        }
+                    }
+                }
                 Section(NSLocalizedString("Prix de vente TTC", comment: "Price filter")) {
                     HStack {
                         Text(NSLocalizedString("Min", comment: "Min"))
@@ -555,14 +594,6 @@ struct ProductListView<Impression: View, Sheets: View>: View {
                             .focused($filterFieldFocused)
                         Text("€").foregroundStyle(.secondary)
                     }
-                }
-                Section(NSLocalizedString("Tri", comment: "Sort")) {
-                    Picker(NSLocalizedString("Trier par", comment: "Sort by"), selection: $model.sortField) {
-                        ForEach(EBPSearchModel.SortField.allCases) { field in
-                            Text(field.title).tag(field)
-                        }
-                    }
-                    Toggle(NSLocalizedString("Ordre décroissant", comment: "Descending"), isOn: $model.sortDescending)
                 }
                 Section {
                     Button(NSLocalizedString("Appliquer", comment: "Apply")) {
