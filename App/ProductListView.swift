@@ -58,6 +58,11 @@ final class EBPSearchModel: ObservableObject {
     @Published var sortDescending = false
     @Published private(set) var items: [EBPItem] = []
     @Published private(set) var phase: Phase = .idle
+    /// Une première liste a-t-elle déjà été chargée ? Une fois vrai, on ne repasse plus par
+    /// l'écran de chargement plein écran : un rechargement (recherche, filtre) garde la liste
+    /// affichée avec un simple voile. Sans ça, une recherche qui ramène 0 résultat remplace la
+    /// liste par un ProgressView, ce qui détruit le champ de recherche et fait tomber le clavier.
+    @Published private(set) var hasLoadedOnce = false
 
     /// Un filtre (hors recherche texte et tri) est-il actif ?
     var hasActiveFilters: Bool {
@@ -145,7 +150,7 @@ final class EBPSearchModel: ObservableObject {
     func search(debounced: Bool = true) {
         searchTask?.cancel()
         searchTask = Task { [weak self] in
-            if debounced { try? await Task.sleep(nanoseconds: 350_000_000) }
+            if debounced { try? await Task.sleep(nanoseconds: 600_000_000) }
             guard !Task.isCancelled else { return }
             await self?.reload()
         }
@@ -175,6 +180,7 @@ final class EBPSearchModel: ObservableObject {
             total = page.paging?.total ?? 0
             offset = page.items.count
             lastPageWasFull = page.items.count >= pageSize
+            hasLoadedOnce = true
             phase = .loaded
         } catch {
             guard !Task.isCancelled, gen == generation else { return }
@@ -619,10 +625,13 @@ struct ProductListView<Impression: View, Sheets: View>: View {
     @ViewBuilder
     private var content: some View {
         switch model.phase {
-        case .idle, .loading where model.items.isEmpty:
+        case .idle, .loading where !model.hasLoadedOnce:
+            // Tout premier chargement uniquement : écran plein. Dès qu'une liste a été chargée
+            // (hasLoadedOnce), on garde `list` — même vide, même pendant un rechargement — pour
+            // ne pas détruire le champ de recherche et faire tomber le clavier.
             ProgressView(NSLocalizedString("Chargement…", comment: "Loading"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .error(let message) where model.items.isEmpty:
+        case .error(let message) where !model.hasLoadedOnce:
             ContentUnavailableView {
                 Label(NSLocalizedString("Impossible de charger", comment: "Cannot load"), systemImage: "exclamationmark.triangle")
             } description: { Text(message) } actions: {
