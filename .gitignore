@@ -10,6 +10,10 @@ xcuserdata/
 .build/
 .swiftpm/
 
+# Builds Xcode device/simulateur (derivedData local)
+.build-device/
+.build-sim/
+
 # macOS
 .DS_Store
 

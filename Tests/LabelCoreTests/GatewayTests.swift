@@ -234,11 +234,35 @@ final class GatewayTests: XCTestCase {
 
     func testWhereConditionSearch() {
         XCTAssertNil(GatewayWhereCondition.search("   "))
+        // Mot texte : contains sur libellé (Caption) et référence (Id) seulement — les seuls
+        // champs qu'EBP accepte en Like. Pas de BarCode ni DesComClear (EBP plante / gonfle).
         XCTAssertEqual(GatewayWhereCondition.search("bosch"),
                        "contains(Caption,'bosch') or contains(Id,'bosch')")
         // Échappement des apostrophes.
         XCTAssertEqual(GatewayWhereCondition.search("l'outil"),
                        "contains(Caption,'l''outil') or contains(Id,'l''outil')")
+    }
+
+    func testWhereConditionSearchBarcode() {
+        // Un mot qui a la forme d'un code-barres (≥ 6 chiffres) → BarCode eq SEUL (égalité exacte,
+        // sans contains : EBP renvoie 502 sur un contains dont le motif est des zéros).
+        XCTAssertEqual(GatewayWhereCondition.search("4260056150012"),
+                       "BarCode eq '4260056150012'")
+        // Code-barres préfixé de zéros (cas SRM) : idem, et surtout aucun contains('000…').
+        XCTAssertEqual(GatewayWhereCondition.search("0000000452625"),
+                       "BarCode eq '0000000452625'")
+        // Court nombre (< 6 chiffres) : pas de code-barres, recherche texte normale.
+        XCTAssertEqual(GatewayWhereCondition.search("12"),
+                       "contains(Caption,'12') or contains(Id,'12')")
+    }
+
+    func testWhereConditionSearchMultipleWords() {
+        // Multi-mots : chaque mot doit matcher (mots en « and »).
+        XCTAssertEqual(GatewayWhereCondition.search("bosch 12"),
+                       "(contains(Caption,'bosch') or contains(Id,'bosch')) and (contains(Caption,'12') or contains(Id,'12'))")
+        // Espaces multiples / en bordure : ignorés (pas de clause vide).
+        XCTAssertEqual(GatewayWhereCondition.search("  bosch   "),
+                       "contains(Caption,'bosch') or contains(Id,'bosch')")
     }
 
     func testWhereConditionAnd() {
